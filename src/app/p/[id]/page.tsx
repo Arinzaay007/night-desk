@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { PlanForm } from '@/components/PlanForm';
+import { EarningsPanel } from '@/components/EarningsPanel';
 import { ProofPanel } from '@/components/ProofPanel';
 import { WalletBar } from '@/components/WalletBar';
 import { shortAddress, usd } from '@/lib/format';
@@ -159,6 +160,17 @@ export default function PlanPage() {
             <WalletBar wallet={wallet} />
           </div>
           <PlanForm mode="mirror" wallet={wallet} initial={plan} authorLabel={shortAddress(plan.a)} />
+        </section>
+
+        <section className="section">
+          <h2>What the author earns</h2>
+          <p className="tiny dim" style={{ maxWidth: '62ch' }}>
+            Every mirror of this plan carries a small integrator fee, and the person who wrote the
+            plan gets a cut of it — the one part of a shared plan that pays its author.
+          </p>
+          <div style={{ marginTop: 14 }}>
+            <EarningsPanel author={plan.a} />
+          </div>
         </section>
 
         <section className="section">

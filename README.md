@@ -77,7 +77,8 @@ Server routes (Next.js)  ──►  Flash API  https://flash.definitive.fi/v1
 | `/p/[id]` | **The plan link** — the whole social layer, plus a proof panel |
 | `/desk` | Positions and protection, with exits: cancel an open order, or close a filled position |
 | `/board` | Published plans ranked on realised P&L, with two other rankings a click away |
-| `/api/quote`, `/api/order`, `/api/orders`, `/api/cancel`, `/api/close`, `/api/proof`, `/api/plans`, `/api/assets`, `/api/balance`, `/api/setup-tx`, `/api/receipt`, `/api/warmup`, `/api/health` | Server routes |
+| `/payouts` | Operator queue: who is owed what, and the two-step author payout |
+| `/api/quote`, `/api/order`, `/api/orders`, `/api/cancel`, `/api/close`, `/api/proof`, `/api/plans`, `/api/earnings`, `/api/assets`, `/api/balance`, `/api/setup-tx`, `/api/receipt`, `/api/warmup`, `/api/health` | Server routes |
 
 ### The board
 
@@ -98,6 +99,41 @@ Two details that matter more than they look:
 
 The ordering rule lives in `src/lib/rank.ts` as a pure function with 24 assertions behind it
 (`npm run test:rank`) — including that the most-copied plan does not automatically lead.
+
+### Authors get paid
+
+This is the monetisation half of the build, and it is a real fee, not a mock: every order sends
+`flashIntegratorFeeBps` (default 25 bps) on both `/quote` and `/order`. Of that fee, the author of
+the plan gets `AUTHOR_SHARE_PCT` (default 60%).
+
+A plan is only worth writing if writing one pays, so the share follows the plan wherever it goes —
+the author's own page shows what they have earned, per wallet that mirrored them.
+
+Three rules, and they are enforced in code rather than in copy:
+
+- **A forecast is not money.** Placing an order accrues an `estimated` earning. Estimates are visible
+  and are *never* payable — `claimable()` filters them out by construction, so there is no code path
+  that pays one.
+- **Settled fills only, and both legs of them.** `reconcile()` replaces the forecast with what was
+  actually charged once fills settle, reading **the entry order and the attached bracket pair**. The
+  pair is a separate order with its own fee, so entry-only reconciliation would underpay exactly the
+  authors whose plans worked.
+- **Our bps, not the quoted total.** The author share is computed from `notional × bps`, never from
+  `estimatedFeeNotional` — that all-in figure already contains Definitive's own 10 bps and the
+  network cost. Sharing it out would pay authors money nobody collected.
+
+**Money is integer micro-USD** throughout. A $0.25 mirror at 25 bps pays a 375 µUSD share; the same
+number in float dollars rounds to zero, which would silently pay nothing on exactly the small mirrors
+this product is built around. Sub-cent amounts render as `0.04¢`, never `$0.00`.
+
+**Why off-chain.** Flash pays **one** integrator per order — this deployment — and cannot split a fee
+across the many authors whose plans get mirrored. So the ledger at `src/lib/earnings.ts` is a record
+of *obligation*, not a contract, and `/payouts` settles it as a plain USDC transfer per author. The
+settle step is irreversible bookkeeping, so it is a separate request behind `OPERATOR_TOKEN` whenever
+the deployment is armed. There is deliberately no button that both computes and commits a payment.
+
+Try it without spending: `npm run test:earnings` (97 assertions on the arithmetic) and
+`npm run test:earnings:live` (38 assertions through HTTP against a running server).
 
 ### Getting out
 
@@ -169,7 +205,7 @@ thing from the terminal with two throwaway wallets.
 ## Known limitations (honest list)
 
 - **The board is best-effort.** Flash scopes order reads to a funder address, so there is no global feed of trades to index; the board can only see plans published through Night Desk. Its ledger picks a backend at runtime — Upstash Redis if `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, otherwise `./.data/store.json`, which is **ephemeral on serverless hosts**. `GET /api/health` reports which backend is live and warns when it is the ephemeral one, so the failure is visible before it bites rather than after a redeploy empties the board. Plan *viewing* never touches the store at all, so links keep working either way.
-- **Author fee share is accrued, not distributed.** Integrator fees are collected by Flash into the integrator's portfolio; splitting them to plan authors is an off-chain ledger step this build does not implement.
+- **The author share is an off-chain obligation, not a contract.** Flash pays one integrator per order — this deployment — so it cannot split a fee across the authors whose plans get mirrored. `src/lib/earnings.ts` records what is owed and `/payouts` settles it as a plain USDC transfer. That is a real payment and a real ledger, but it is a promise this deployment keeps rather than one the exchange enforces: the money must be withdrawn from the integrator's Flash portfolio before there is anything to send. Every amount is an integer micro-USD and a forecast can never be withdrawn, but the obligation itself is only as good as the operator.
 - **P&L covers what the exchange reports, which is what a proof can honestly claim.** Realised figures come from settled fills on the entry and its bracket legs; the open remainder is marked at the current market price from a fresh quote. It is not a full accounting ledger: fees are taken as reported by Flash rather than recomputed, and a position that was moved by something outside Night Desk will read as an unexplained difference rather than being silently reconciled. Where a fill cannot be read back the row is marked unverified and excluded from the totals.
 - **Close-position was not verified end to end.** The sell request shape, its signature and the guards are all covered by the preflight, but no wallet we had access to holds a tokenised equity, so the round trip (sell → cancel pair) has not been executed against real funds. It is rung 2b on the funded ladder.
 - **Base only.** Robinhood Chain, Solana and cross-chain all quote successfully through Flash and are deliberately out of scope to keep settlement single-chain.
@@ -184,15 +220,17 @@ Flash has **no testnet** — testnets are not valid chain values in their API an
 equities only exist on mainnet. Testing is therefore layered:
 
 ```bash
-npm run check            # typecheck + pure-layer assertions (no server needed)
-npm run rehearse         # 91 preflight checks, then the 35-assertion two-wallet mirror rehearsal
+npm run check            # typecheck + 172 pure-layer assertions (no server needed)
+npm run rehearse         # 107 preflight checks, then the 35-assertion two-wallet mirror rehearsal
+npm run test:earnings:live   # 38 assertions on the author ledger, through HTTP
 npm run dev              # with NEXT_PUBLIC_DRY_RUN=1 for a free full-flow rehearsal in the browser
 ```
 
 Three layers, and the first two cost nothing:
 
-1. **Preflight** — 91 checks over live market data, the parametric maths, bracket construction,
-   verified signatures, every guard, the cancel bytes, the board and secret hygiene.
+1. **Preflight** — 107 checks over live market data, the parametric maths, bracket construction,
+   verified signatures, every guard, the cancel bytes, the author ledger, the board and secret
+   hygiene.
 2. **The mirror rehearsal** — `scripts/test-flow.mjs` runs the whole flow with two throwaway wallets:
    real quotes, real signatures, the real order route assembling the real payload, stopped one line
    before the exchange. It proves the headline claim — two wallets, two *independent* brackets — and
@@ -211,8 +249,10 @@ Then a staged **funded mainnet ladder** that starts at one dollar and, for the r
 most, costs nothing at all. Full detail, including what each rung proves and what it costs:
 **[TESTING.md](./TESTING.md)**.
 
-The preflight already paid for itself — it found an undocumented API constraint that would have
-broken any limit entry (see below).
+The preflight already paid for itself twice. It found an undocumented API constraint that would have
+broken any limit entry (see below), and the structural checks in group 9i exist because a rollback
+once silently removed the earnings wiring from the order route while every runtime check still
+passed — the file contents were the only thing that noticed.
 
 ## Gotchas worth knowing
 

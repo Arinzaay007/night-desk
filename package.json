@@ -8,13 +8,15 @@
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc --noEmit",
     "preflight": "node scripts/preflight.mjs",
+    "verify:key": "node scripts/verify-key.mjs",
+    "check": "npm run typecheck && npm run test:pnl && npm run test:rank && npm run test:earnings",
     "test:pnl": "node scripts/test-pnl.mjs",
-    "check": "npm run typecheck && npm run test:pnl && npm run test:rank",
     "test:rank": "node scripts/test-rank.mjs",
+    "test:earnings": "node scripts/test-earnings.mjs",
+    "test:earnings:live": "node scripts/test-earnings-live.mjs",
     "test:flow": "node scripts/test-flow.mjs",
     "rehearse": "npm run preflight && npm run test:flow",
-    "demo:check": "node scripts/demo-check.mjs",
-    "verify:key": "node scripts/verify-key.mjs"
+    "demo:check": "node scripts/demo-check.mjs"
   },
   "dependencies": {
     "next": "^15.5.0",

@@ -42,7 +42,7 @@ npm run preflight              # against localhost:3000
 npm run preflight https://your-app.vercel.app   # against a deployment
 ```
 
-91 checks across eighteen groups, driving the real server routes and the real API:
+107 checks across twenty groups, driving the real server routes and the real API:
 
 - Live market data (all 7 equities priced, none risk-flagged)
 - Balance discovery (funded wallet + a brand-new wallet, no crash)
@@ -74,8 +74,13 @@ The full group list is printed on every run. The newest surfaces:
 - **The board** — rows account for every mirrored position, an unknown plan is an empty board rather
   than an error, and the ranking table is present in the server-rendered HTML with unpriced plans
   labelled instead of shown as flat
+- **Author earnings** — the ledger refuses an unqualified read, an unknown author reads as empty
+  rather than erroring, the queue is ordered by what is owed, an unknown action is refused, **an
+  unearned balance prepares no transfer**, and settling with nothing payable is a no-op. Four of
+  these are *structural* checks that read the source files directly (`the order route accrues an
+  earning`, `the proof route reconciles entry and bracket fills`) — see below for why.
 
-Two pure layers are covered by their own suites, both of which compile the real module into a temp
+Three pure layers are covered by their own suites, all of which compile the real module into a temp
 directory before importing it — a test cannot pass while the shipped file is broken:
 
 - `npm run test:pnl` — **51 assertions** on `src/lib/pnl.ts`: token maths, open and underwater
@@ -84,12 +89,30 @@ directory before importing it — a test cannot pass while the shipped file is b
 - `npm run test:rank` — **24 assertions** on `src/lib/rank.ts`: that realised profit outranks reach,
   that a loss is a real score, that an unpriced plan sinks rather than being ranked flat, the
   tie-breaks, and that the ranking neither mutates nor invents rows.
+- `npm run test:earnings` — **97 assertions** on `src/lib/earnings.ts`: integer micro-USD arithmetic
+  (including that a 375 µUSD share does *not* round to zero), the fee maths against the quoted
+  all-in figure, reading a fee off a fill, idempotent accrual, reconciliation that sums the entry
+  **and** the bracket leg without accumulating, and the payout invariant — **a forecast cannot be
+  claimed, even when its id is named explicitly**, and a claimed record is terminal against a late
+  fill report.
 
-`npm run check` runs the typecheck and both suites.
+`npm run check` runs the typecheck and all three suites — 172 assertions, no server, no funds.
+
+There is also a fourth for the wiring rather than the arithmetic:
+
+```bash
+npm run dev                     # in one shell
+npm run test:earnings:live      # in another — 38 assertions through HTTP
+```
+
+`scripts/test-earnings-live.mjs` injects a store file, walks forecast → obligation → transfer →
+settled over real HTTP against a running server, and restores what was there afterwards. It checks
+that `prepare` builds genuine `0xa9059cbb` calldata for the reconciled amount only, that the amount
+forked out does not include a forecast, and that settling twice does not pay twice.
 
 This is the substitute for a testnet, and it already earned its keep.
 
-### It caught a real bug
+### It caught a real bug, and then a silent one
 
 The preflight found an **undocumented API constraint** that would have broken the demo the moment
 anyone tried a limit entry:
@@ -104,6 +127,12 @@ it must be `limitCrossPrice` instead. Nothing in Definitive's documentation ment
 only found by exercising the real API — **a testnet would not have caught it either**, because the
 constraint is in their application logic, not their contracts. Fixed in `src/app/api/quote/route.ts`,
 covered forever by section 7 of the preflight.
+
+The second was quieter and worse. A rollback removed the author-share accrual from the order route
+and the reconciliation from the proof route — and **every runtime check still passed**, because the
+routes simply behaved as if the feature had never existed. Nothing errored; money just stopped being
+owed. That is the failure mode a preflight is for, so group 9i now asserts the wiring directly by
+reading the source files, and four of its checks fail if those lines go away again.
 
 ## Layer 2 — The mirror rehearsal (free, real quotes, real signatures)
 
@@ -223,7 +252,8 @@ ladder is roughly **ten cents** in fees and gas. If you only want to prove the m
 at $1 costs you about **four cents**.
 
 ### Rung 0 — Readiness (free)
-- [ ] `npm run rehearse` → 91/91 and 35/35, with the dev server running
+- [ ] `npm run rehearse` → 107/107 and 35/35, with the dev server running
+- [ ] `npm run check` → 172/172 (51 + 24 + 97)
 - [ ] In the browser, with dry run on: press *Sign, execute & mirror* on a plan at **rehearse at $1**
       and watch all four steps complete. This is free and it exercises the wallet prompts.
 - [ ] Wallet A holds ≥ $2 USDC on Base **plus ~$1 of ETH for gas**

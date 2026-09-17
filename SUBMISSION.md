@@ -42,16 +42,29 @@ New build specifically for Runtime ✅.
 
 ### ⚠️ Monetize the integration
 
-The fee is real and verified: `flashIntegratorFeeBps` 25 rides on every order and appears in the
-submission payload as `wouldSubmit.flashIntegratorFeeBps` — 25 bps, asserted in the rehearsal.
+The mechanism is built, measured and asserted. `flashIntegratorFeeBps` 25 rides on **both** `/quote`
+and `/order`, and the fee was proved against the live API rather than assumed: the same $100 quote
+with and without the parameter differs by **$4.9922**, which is 500 bps as asked — so the parameter is
+honoured, not ignored.
 
-**But the box is not truly ticked yet.** You are on the public key from Definitive's docs, so those
-fees accrue to their demo integrator rather than to you. `npm run demo:check -- --armed` reports this
-as a blocker. It is the single highest-value five minutes left:
+Above that sits the author share, which is what makes the fee *social*: of the 25 bps, the plan's
+author gets 60%, tracked in integer micro-USD and settled from `/payouts` as a plain USDC transfer.
+A forecast is never payable — `claimable()` filters it out by construction — and reconciliation sums
+the entry order **and** the bracket pair, because the protective leg charges its own fee. 97 unit
+assertions and 38 live ones cover it; 11 of the preflight's 107 checks are group 9i.
+
+**But the box is not truly ticked yet, and the reason is one key.** The build is on the public key
+from Definitive's docs, so those fees accrue to **their** demo integrator, not to you — the author
+share has nothing to share out. `npm run verify:key` states this in one command and prints the fix;
+`npm run demo:check -- --armed` reports it as a blocker. It is the single highest-value five minutes
+left:
 
 ```
-app.definitive.fi → More → Flash → Create Flash Key → paste into .env.local → restart
+app.definitive.fi → sign in with an email → More → Flash → Create Flash Key
+→ paste into .env.local as FLASH_API_KEY → restart → npm run verify:key
 ```
+
+Fees then land in the Flash Portfolio of *your* account, withdrawable from `app.definitive.fi`.
 
 ### ⚠️ Submit through Runtime
 
@@ -141,9 +154,10 @@ verified. That is a defensible submission. What it costs is the end-to-end claim
 1. **Swap the Flash key** — 5 min, free, and it is the difference between *shipping* the 25 bps fee
    and *describing* it.
 2. **Push to GitHub, make it public, edit the LICENSE holder** — free.
-3. **Deploy to Vercel** — free. Set `FLASH_API_KEY`, `INTEGRATOR_FEE_BPS=25`, `MIN_SPEND_USD`,
-   `MAX_SPEND_USD`, `NEXT_PUBLIC_DRY_RUN=0`. Set `UPSTASH_REDIS_REST_URL`/`_TOKEN` too, or the board
-   empties on the next redeploy — `demo:check` will remind you.
+3. **Deploy to Vercel** — free. Set `FLASH_API_KEY`, `INTEGRATOR_FEE_BPS=25`, `AUTHOR_SHARE_PCT=60`,
+   `MIN_SPEND_USD`, `MAX_SPEND_USD`, `NEXT_PUBLIC_DRY_RUN=0`. Set `OPERATOR_TOKEN` too, or settling a
+   payout is refused while armed; set `UPSTASH_REDIS_REST_URL`/`_TOKEN` too, or the board empties on
+   the next redeploy — `demo:check` will remind you.
 4. **Rung 1** — four cents, and it answers the five open questions.
 5. **Record** — `DEMO.md`.
 6. **Post on X, copy the `/status/` permalink.**

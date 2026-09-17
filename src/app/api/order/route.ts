@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { FlashError, describeFlashError, summariseFlashError, submitOrder } from '@/lib/flash';
-import { recordMirror } from '@/lib/store';
+import {
+  FlashError,
+  describeFlashError,
+  integratorFeeBps,
+  summariseFlashError,
+  submitOrder,
+} from '@/lib/flash';
+import { recordMirror, upsertEarning } from '@/lib/store';
+import { accrue, earningId, type EarningRecord } from '@/lib/earnings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -175,6 +182,38 @@ export async function POST(request: NextRequest) {
           tpPct: ledger.tpPct,
           slPct: ledger.slPct,
         });
+
+        /**
+         * Record what the author is owed, as a FORECAST.
+         *
+         * A fee you paid on your own plan is not an obligation to anyone, so a
+         * wallet mirroring itself is skipped — the author share exists for the
+         * case this product is built around, someone else running your plan.
+         *
+         * Stored as `estimated` and never payable until /api/proof reconciles
+         * it against settled fills.
+         */
+        const author = typeof ledger.author === 'string' ? ledger.author.toLowerCase() : '';
+        const funder = String(tradeFields.funderAddress ?? '').toLowerCase();
+        if (author && funder && author !== funder) {
+          await upsertEarning(earningId(planKeyValue, result.orderId), existing => {
+            if (existing) return existing; // retried submit: no double accrual
+            const draft: EarningRecord[] = [];
+            accrue(draft, {
+              planKey: planKeyValue,
+              planId: typeof ledger.planId === 'string' ? ledger.planId : undefined,
+              symbol: ledger.symbol ?? '—',
+              author,
+              funder,
+              orderId: result.orderId,
+              bracketOrderId:
+                (result.attachedBracket as { bracketOrderId?: string } | undefined)?.bracketOrderId ?? null,
+              notionalUsd: Number(ledger.spendUsd ?? 0),
+              bps: Number(integratorFeeBps()) || 0,
+            });
+            return draft[0] ?? null;
+          });
+        }
       } catch {
         /* ledger is a convenience, not the source of truth (Flash is) */
       }

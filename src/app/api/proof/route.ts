@@ -1,8 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { BASE_CHAIN } from '@/lib/assets';
-import { FlashError, describeFlashError, summariseFlashError, getOrder, searchAssets } from '@/lib/flash';
+import {
+  FlashError,
+  describeFlashError,
+  integratorFeeBps,
+  summariseFlashError,
+  getOrder,
+  searchAssets,
+} from '@/lib/flash';
 import { aggregatePnl, computePnl, type MirrorPnl } from '@/lib/pnl';
-import { mirrorsForPlan } from '@/lib/store';
+import { mirrorsForPlan, updateEarnings } from '@/lib/store';
+import { reconcile } from '@/lib/earnings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,6 +104,35 @@ export async function GET(request: NextRequest) {
         // P&L from settled fills only.
         const pnl = computePnl({ entry: order, exit: exitOrder, currentPrice });
         pnlRows.push(pnl);
+
+        /**
+         * Turn the author's forecast into an obligation.
+         *
+         * ENTRY **AND** BRACKET LEG. The protective pair is a separate order and
+         * charges its own fee, so reconciling from the entry alone would
+         * underpay every author whose plan actually took profit — which is
+         * exactly the author you most want to keep.
+         *
+         * Only settled fills reach here; `reconcile` drops the rest and leaves
+         * the record as an unpayaable estimate.
+         */
+        const settledFills = [...(order.fills ?? []), ...(exitOrder?.fills ?? [])].map(fill => ({
+          integratorFeeAmount: fill.integratorFeeAmount ?? null,
+          feeTicker: fill.feeTicker ?? null,
+          notional: fill.notional ?? null,
+          status: fill.status ?? null,
+        }));
+        if (settledFills.length > 0) {
+          await updateEarnings(records => {
+            reconcile(records, {
+              planKey: mirror.planKey,
+              orderId: mirror.orderId,
+              fills: settledFills,
+              bps: Number(integratorFeeBps()) || 0,
+            });
+            return records;
+          });
+        }
 
         proof.push({
           funder: mirror.funder,

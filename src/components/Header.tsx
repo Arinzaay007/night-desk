@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/create', label: 'Compose' },
   { href: '/desk', label: 'My desk' },
   { href: '/board', label: 'Board' },
+  { href: '/payouts', label: 'Payouts' },
 ];
 
 export function Header() {

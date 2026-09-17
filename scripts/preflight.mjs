@@ -13,6 +13,7 @@
  * Exit code 0 = safe to move to the funded mainnet ladder.
  */
 
+import { readFileSync } from 'node:fs';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { verifyMessage, verifyTypedData } from 'viem';
 
@@ -63,6 +64,21 @@ async function api(path, init) {
   const response = await fetch(BASE + path, init);
   const payload = await response.json().catch(() => ({}));
   return { status: response.status, payload };
+}
+
+/**
+ * Read a source file, for the structural checks.
+ *
+ * These exist because a missing wire is silent: when a rollback removed the
+ * earnings accrual from the order route, every runtime check still passed. The
+ * file contents are the only thing that notices, so they get asserted directly.
+ */
+function read(relative) {
+  try {
+    return readFileSync(relative, 'utf8');
+  } catch {
+    return '';
+  }
 }
 
 const postQuote = (plan, funder) =>
@@ -559,12 +575,18 @@ try {
     typeof integrator.fingerprint === 'string' && integrator.fingerprint.length === 8,
     `sha256:${integrator.fingerprint}\u2026`,
   );
+  /*
+   * A real assertion, not decoration. The fingerprint must be a lowercase hex
+   * digest. If `keyFingerprint()` ever regressed into returning a slice of the
+   * key, it would produce something like "dpka_513" and this fails — which is
+   * the property that actually matters, since a prefix of the key is key
+   * material while a sha256 prefix is not.
+   */
   record(
     'health',
-    'the fingerprint is not derived from the key itself',
-    !JSON.stringify(payload).includes(String(payload.integrator?.fingerprint ?? 'x').slice(0, 4)) ||
-      true,
-    'hash, so the key cannot be recovered from it',
+    'the fingerprint is a digest, not a slice of the key',
+    /^[0-9a-f]{8}$/.test(String(integrator.fingerprint ?? '')),
+    `sha256:${integrator.fingerprint}… — hex digest, so no key material is recoverable`,
   );
   record(
     'health',
@@ -579,6 +601,115 @@ try {
   );
 } catch (error) {
   record('health', 'reports configuration', false, error.message);
+}
+
+/* --- 9i. author earnings -------------------------------------------- */
+/*
+ * The author share is the monetisation half of this build, and it is the part
+ * with money-shaped failure modes: paying a forecast, paying twice, or losing
+ * the wiring entirely. The static checks exist because that last one already
+ * happened once — a rollback removed the accrual from the order route and
+ * nothing failed, which is exactly the kind of silence a preflight is for.
+ */
+group('9i. Author earnings');
+try {
+  const ledgerSource = read('src/lib/earnings.ts');
+  record('earnings', 'the ledger module is present', ledgerSource.length > 0);
+  record(
+    'earnings',
+    'money is integer micro-USD, not float dollars',
+    ledgerSource.includes('MICRO = 1_000_000') && ledgerSource.includes('Math.round'),
+  );
+  record(
+    'earnings',
+    'the order route accrues an earning',
+    read('src/app/api/order/route.ts').includes('upsertEarning'),
+  );
+  record(
+    'earnings',
+    'the proof route reconciles entry and bracket fills',
+    read('src/app/api/proof/route.ts').includes('reconcile') &&
+      /\[\.\.\.\(order\.fills[\s\S]{0,120}exitOrder\?\.fills/.test(read('src/app/api/proof/route.ts')),
+  );
+
+  const missingParams = await api('/api/earnings');
+  record(
+    'earnings',
+    'the ledger refuses an unqualified read',
+    missingParams.status === 400,
+    `status ${missingParams.status}`,
+  );
+
+  const stranger = await api('/api/earnings?author=0x0000000000000000000000000000000000000000');
+  record(
+    'earnings',
+    'an author with no mirrors is empty, not an error',
+    stranger.payload?.ok === true && stranger.payload?.summary?.payableMicro === 0,
+  );
+  record(
+    'earnings',
+    'the payload states the fee and the share',
+    Number(stranger.payload?.feeBps) > 0 && Number(stranger.payload?.sharePct) > 0,
+    `${stranger.payload?.feeBps} bps, ${stranger.payload?.sharePct}% to the author`,
+  );
+
+  const queue = await api('/api/earnings?queue=1');
+  record(
+    'earnings',
+    'the queue is readable and ordered by what is owed',
+    queue.payload?.ok === true && Array.isArray(queue.payload?.queue) && 'totalPayableMicro' in (queue.payload ?? {}),
+    `owed ${queue.payload?.totalPayable}`,
+  );
+
+  const badAction = await api('/api/earnings', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'pay-now' }),
+  });
+  record(
+    'earnings',
+    'an unknown action is refused',
+    badAction.status === 400,
+    `status ${badAction.status}`,
+  );
+
+  /*
+   * The invariant that matters most: a forecast must not be convertible into a
+   * transfer. Nothing here has settled, so prepare must offer no transaction.
+   */
+  const prepare = await api('/api/earnings', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      action: 'prepare',
+      author: '0x0000000000000000000000000000000000000000',
+    }),
+  });
+  record(
+    'earnings',
+    'an unearned balance prepares no transfer',
+    prepare.payload?.ok === true &&
+      prepare.payload?.amountMicro === 0 &&
+      prepare.payload?.tx === undefined,
+    'no tx built for a forecast',
+  );
+
+  const settle = await api('/api/earnings', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      action: 'settle',
+      author: '0x0000000000000000000000000000000000000000',
+    }),
+  });
+  record(
+    'earnings',
+    'settling with nothing payable is a no-op',
+    settle.payload?.ok === true && (settle.payload?.changed ?? []).length === 0,
+    'nothing invented',
+  );
+} catch (error) {
+  record('earnings', 'the author ledger responds', false, error.message);
 }
 
 /* --- 9h. rehearsal mode --------------------------------------------- */

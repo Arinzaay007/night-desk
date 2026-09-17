@@ -124,7 +124,7 @@ That is the real claim, and it is stronger stated precisely.
   > performance. A plan whose fills haven't been read back yet sinks rather than being ranked flat —
   > unpriced is not the same as zero."
 
-### Beat 7 — Proof (4:10–4:40) · back to the plan link
+### Beat 7 — Proof (4:10–4:45) · back to the plan link
 
 Open **Proof**: both mirrors read back by funder and order id — fills, venue, transaction hashes,
 whether the protection activated and whether it fired.
@@ -133,6 +133,31 @@ whether the protection activated and whether it fired.
 > have to take my word for any of it."
 
 Close on the link itself.
+
+### Beat 8 — The author gets paid (4:45–5:15) · back to the plan link, then `/payouts`
+
+Scroll to **What the author earns** on the plan page. If both wallets have mirrored, this shows a
+forecast, a payable figure and a paid figure.
+
+> "A plan is a link, and a link that pays the person who wrote it is the whole reason anyone would
+> write one. Every mirror carries a 25 basis point integrator fee, and the author takes 60% of it."
+
+Point at the states and say why the distinction is load-bearing:
+
+> "**Forecast is not money.** The order is placed, nothing has settled, so nothing is withdrawable —
+> and that isn't a UI rule, the payout function can't even see an estimate. It becomes payable when
+> the fills settle, and the reconciliation sums the entry *and* the protective leg, because the
+> bracket charges its own fee. Pay the entry alone and you underpay exactly the authors whose plans
+> worked."
+
+Then open `/payouts` — the operator queue, largest debt first, and the two-step prepare/settle:
+
+> "One integrator is what Flash can pay per order — so the split is a ledger of obligation, settled
+> as a plain USDC transfer. Prepare builds the transaction and prices the gas; settle records it.
+> Two steps on purpose: no single click both computes and commits a payment."
+
+Optionally show the honest flag: a payout smaller than its own gas is marked **uneconomic** and left
+to accumulate rather than sent for a loss.
 
 ---
 
