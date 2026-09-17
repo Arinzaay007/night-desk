@@ -30,6 +30,11 @@ Each mirror signs its own take-profit / stop-loss pair, good-til-cancelled. **Th
 
 ---
 
+## Track requirements
+
+**[SUBMISSION.md](./SUBMISSION.md)** maps this build against the Definitive Flash track text, box by
+box — what is ticked and verified, what is blocked and on whom, and what was deliberately left out.
+
 ## Definitive Flash advanced orders used
 
 This build uses the Flash advanced order types below. Naming them explicitly, as the track asks:
