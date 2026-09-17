@@ -40,7 +40,7 @@ for, and right now it does not exist.
 
 New build specifically for Runtime ✅.
 
-### ⚠️ Monetize the integration
+### ✅ Monetize the integration
 
 The mechanism is built, measured and asserted. `flashIntegratorFeeBps` 25 rides on **both** `/quote`
 and `/order`, and the fee was proved against the live API rather than assumed: the same $100 quote
@@ -53,18 +53,24 @@ A forecast is never payable — `claimable()` filters it out by construction —
 the entry order **and** the bracket pair, because the protective leg charges its own fee. 97 unit
 assertions and 38 live ones cover it; 11 of the preflight's 107 checks are group 9i.
 
-**But the box is not truly ticked yet, and the reason is one key.** The build is on the public key
-from Definitive's docs, so those fees accrue to **their** demo integrator, not to you — the author
-share has nothing to share out. `npm run verify:key` states this in one command and prints the fix;
-`npm run demo:check -- --armed` reports it as a blocker. It is the single highest-value five minutes
-left:
+**And it is running on our own integrator key, not the public demo key.** That distinction was worth
+chasing, because it is the difference between *shipping* the fee and *describing* it: on the public key
+every check still passes and every quote still works — the fee simply accrues to Definitive's demo
+integrator, silently. Nothing errors. `npm run verify:key` exists to catch exactly that, and it checks
+two things, not one:
 
 ```
-app.definitive.fi → sign in with an email → More → Flash → Create Flash Key
-→ paste into .env.local as FLASH_API_KEY → restart → npm run verify:key
+✓ your own integrator key is loaded   fees accrue to your Flash Portfolio
+✓ Flash honours the rate              $0.3998 all-in on a $100.00 quote
 ```
 
-Fees then land in the Flash Portfolio of *your* account, withdrawable from `app.definitive.fi`.
+Identity alone is deliberately not treated as proof — a key can pass every format check and still be
+rejected by the auth layer. An earlier attempt did precisely that (correct shape, HTTP 401 on every
+call), so the live-quote test is a hard gate, and an auth failure is reported as a blocker rather than
+a warning.
+
+Fees now land in the Flash Portfolio of our own Definitive account, withdrawable from
+`app.definitive.fi`. `npm run demo:check` reports **zero blockers**.
 
 ### ⚠️ Submit through Runtime
 
@@ -151,8 +157,8 @@ verified. That is a defensible submission. What it costs is the end-to-end claim
 
 ## Order of operations
 
-1. **Swap the Flash key** — 5 min, free, and it is the difference between *shipping* the 25 bps fee
-   and *describing* it.
+1. ~~**Swap the Flash key**~~ — **done.** Own key loaded and verified: fees accrue to our Flash
+   Portfolio. (Leave the key in `.env.local`, which is gitignored; never commit it.)
 2. **Push to GitHub, make it public, edit the LICENSE holder** — free.
 3. **Deploy to Vercel** — free. Set `FLASH_API_KEY`, `INTEGRATOR_FEE_BPS=25`, `AUTHOR_SHARE_PCT=60`,
    `MIN_SPEND_USD`, `MAX_SPEND_USD`, `NEXT_PUBLIC_DRY_RUN=0`. Set `OPERATOR_TOKEN` too, or settling a
