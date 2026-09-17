@@ -1,0 +1,30 @@
+{
+  "name": "nightdesk",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "typecheck": "tsc --noEmit",
+    "preflight": "node scripts/preflight.mjs",
+    "test:pnl": "node scripts/test-pnl.mjs",
+    "check": "npm run typecheck && npm run test:pnl && npm run test:rank",
+    "test:rank": "node scripts/test-rank.mjs",
+    "test:flow": "node scripts/test-flow.mjs",
+    "rehearse": "npm run preflight && npm run test:flow",
+    "demo:check": "node scripts/demo-check.mjs"
+  },
+  "dependencies": {
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0"
+  }
+}
