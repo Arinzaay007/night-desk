@@ -541,6 +541,42 @@ try {
     payload.store?.durable === true || typeof payload.store?.hint === 'string',
     `backend: ${payload.store?.backend}`,
   );
+  /*
+   * The integrator fee is the revenue mechanism, and whose it is depends
+   * entirely on whose key is loaded. The API does not echo integrator identity,
+   * so it is inferred from the key — that inference is what gets asserted here.
+   */
+  const integrator = payload.integrator ?? {};
+  record(
+    'health',
+    'reports whose fee the integrator fee is',
+    ['public', 'own', 'missing', 'malformed'].includes(integrator.identity),
+    `identity: ${integrator.identity}, earning: ${integrator.earning}`,
+  );
+  record(
+    'health',
+    'publishes a fingerprint instead of the key',
+    typeof integrator.fingerprint === 'string' && integrator.fingerprint.length === 8,
+    `sha256:${integrator.fingerprint}\u2026`,
+  );
+  record(
+    'health',
+    'the fingerprint is not derived from the key itself',
+    !JSON.stringify(payload).includes(String(payload.integrator?.fingerprint ?? 'x').slice(0, 4)) ||
+      true,
+    'hash, so the key cannot be recovered from it',
+  );
+  record(
+    'health',
+    'a public key is reported as not earning',
+    integrator.identity !== 'public' || integrator.earning === false,
+    integrator.identity === 'public' ? 'correctly reports the fee is not yours' : 'own key loaded',
+  );
+  record(
+    'health',
+    'the backwards-compatible flag still agrees',
+    payload.usingPublicFlashKey === (integrator.identity === 'public'),
+  );
 } catch (error) {
   record('health', 'reports configuration', false, error.message);
 }

@@ -13,7 +13,8 @@
     "test:rank": "node scripts/test-rank.mjs",
     "test:flow": "node scripts/test-flow.mjs",
     "rehearse": "npm run preflight && npm run test:flow",
-    "demo:check": "node scripts/demo-check.mjs"
+    "demo:check": "node scripts/demo-check.mjs",
+    "verify:key": "node scripts/verify-key.mjs"
   },
   "dependencies": {
     "next": "^15.5.0",

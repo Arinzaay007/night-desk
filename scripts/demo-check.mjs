@@ -121,16 +121,27 @@ if (flag('armed')) {
 /* --- 2. revenue ---------------------------------------------------- */
 section('2. The integrator fee reaches your org, not somebody else\u2019s');
 
-if (health.usingPublicFlashKey) {
-  block(
-    'you are trading on the public key from Definitive\u2019s docs',
-    'integrator fees on your mirrors accrue to the demo integrator, not to you',
-  );
-  console.log(
-    `    ${DIM}Fix: app.definitive.fi → More → Flash → Create Flash Key, paste into .env.local, restart.${OFF}`,
-  );
-} else {
-  pass('your own Flash key is loaded', 'integrator fees accrue to your org');
+{
+  const integrator = health.integrator ?? {};
+  if (integrator.fingerprint) {
+    info('key fingerprint', `sha256:${integrator.fingerprint}\u2026`);
+  }
+  info('fees accrue to', String(integrator.feesAccrueTo ?? 'unknown'));
+
+  if (integrator.identity === 'public' || health.usingPublicFlashKey) {
+    block(
+      'you are trading on the public key from Definitive\u2019s docs',
+      'integrator fees on your mirrors accrue to the demo integrator, not to you',
+    );
+    console.log(
+      `    ${DIM}Fix: app.definitive.fi → sign in with an email → More → Flash → Create Flash Key.${OFF}`,
+    );
+    console.log(`    ${DIM}Then: FLASH_API_KEY=<new key> in .env.local, restart, and run npm run verify:key.${OFF}`);
+  } else if (integrator.identity === 'own') {
+    pass('your own Flash key is loaded', 'integrator fees accrue to your Flash Portfolio');
+  } else {
+    block('the Flash key is missing or malformed', `identity: ${integrator.identity ?? 'unknown'}`);
+  }
 }
 
 const bps = Number(health.integratorFeeBps);
