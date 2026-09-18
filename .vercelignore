@@ -1,0 +1,8 @@
+# Never upload local state or secrets to Vercel.
+# .env.local holds the Flash API key and the Upstash token; Vercel supplies
+# both as project environment variables instead.
+.env.local
+.env*.local
+.data
+next.config.mjs.bak
+*.log
