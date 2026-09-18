@@ -30,23 +30,22 @@ published example key** from their docs — not ours.
 
 ## Step 2 — Make the ledger durable ✅ DONE
 
-Database: **`literate-glowworm-285241.upstash.io`**
+Database: **`inspired-slug-284694.upstash.io`** — claimed to your Upstash account, so it
+does not expire.
 
-Created via Upstash's agent endpoint (`upstash.com/start-redis`) — no signup, no console
-UI. The five-minute button hunt was unnecessary.
+Seeded and verified three ways: `backend: upstash`, `durable: true`, `/api/proof` reading
+**1 mirror · 100% published · 3375 µUSD**, and finally a direct `GET nightdesk:mirrors`
+against Redis that bypasses the app entirely — `mirrors` + `earnings` keys present, NVDAc,
+TP 264.34 / SL 202.66.
 
-Seeded and verified locally: `backend: upstash`, `durable: true`, and `/api/proof` reading
-**1 mirror · 100% published · 3375 µUSD** back out of Redis rather than off disk.
+> The first database was created with Upstash's agent endpoint (`upstash.com/start-redis`),
+> which needs no signup — but those expire after three days unless claimed. Replaced with a
+> claimed one so the board survives past the judging window.
 
-> ⚠️ **This database expires 3 days after creation unless claimed.** Claim it at
-> `upstash.com/start-redis/console/4d1b038a-504d-41cb-88ee-7e5c353ce1c8` — click **Claim**.
-> If judging happens after Monday and the database is unclaimed, the board goes empty and
-> the submission shows nothing.
+The credentials live in `.env.local` (gitignored) and must also be set on the host.
 
-The credentials live in `.env.local` (gitignored). They must also be set on the host.
-
-`npm run seed` remains the tool for re-pushing a local ledger into Redis. It merges rather
-than overwrites, so running it twice is safe.
+`npm run seed` re-pushes a local ledger into Redis. It merges rather than overwrites, keys
+on `orderId`, keeps earnings rows whole, and reads the value back to confirm.
 
 ---
 
