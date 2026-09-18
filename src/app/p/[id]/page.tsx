@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { PlanForm } from '@/components/PlanForm';
+import { CompliancePanel } from '@/components/CompliancePanel';
 import { EarningsPanel } from '@/components/EarningsPanel';
 import { ProofPanel } from '@/components/ProofPanel';
 import { WalletBar } from '@/components/WalletBar';
@@ -160,6 +161,17 @@ export default function PlanPage() {
             <WalletBar wallet={wallet} />
           </div>
           <PlanForm mode="mirror" wallet={wallet} initial={plan} authorLabel={shortAddress(plan.a)} />
+        </section>
+
+        <section className="section">
+          <h2>Did they run it?</h2>
+          <p className="tiny dim" style={{ maxWidth: '62ch' }}>
+            Every mirror is an order on the exchange, so we can read back what actually landed and
+            compare it against the levels above. Anything else is just a claim.
+          </p>
+          <div style={{ marginTop: 14 }}>
+            <CompliancePanel planKey={planKeyValue} />
+          </div>
         </section>
 
         <section className="section">

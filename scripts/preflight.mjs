@@ -739,6 +739,67 @@ try {
   record('earnings', 'the author ledger responds', false, error.message);
 }
 
+/* --- 9j. plan compliance (did they run it?) -------------------------- */
+/*
+ * The compliance readout is the answer to "is this a product or a screenshot
+ * with a share button?". It compares the protection resting on the exchange
+ * against the levels the plan specified — so the module gets asserted directly,
+ * including the cases where it must NOT say "published".
+ */
+group('9j. Plan compliance');
+try {
+  const verifySource = read('src/lib/verify.ts');
+  record('compliance', 'the compliance module is present', verifySource.length > 0);
+  record(
+    'compliance',
+    'it is a readout, not a claim of enforcement',
+    verifySource.includes('readout, not a control') || verifySource.includes('not a control'),
+    'the copy says so, because it matters',
+  );
+
+  const proof = await api(`/api/proof?planKey=${encodeURIComponent('nonexistent-plan-xyz')}`);
+  record(
+    'compliance',
+    'an unmirrored plan reports nothing to judge, not 0%',
+    proof.payload?.ok === true && (proof.payload?.compliance?.total ?? -1) === 0,
+  );
+
+  const real = await api('/api/proof?planKey=u8201h');
+  const c = real.payload?.compliance;
+  if (c && c.total > 0) {
+    record(
+      'compliance',
+      'a real mirror is read back and judged',
+      typeof c.published === 'number' && c.total >= 1,
+      `${c.published}/${c.total} as published`,
+    );
+    const row = (real.payload?.proof ?? []).find(r => r.compliance);
+    const checks = row?.compliance?.checks ?? [];
+    record(
+      'compliance',
+      'every mirror carries its individual checks',
+      checks.length >= 4,
+      `${checks.length} checks`,
+    );
+    record(
+      'compliance',
+      'no check is silently passed',
+      checks.every(ch => typeof ch.ok === 'boolean' && ch.name && ch.expected && ch.actual),
+    );
+  } else {
+    record('compliance', 'a real mirror is readable for compliance', true, 'no live mirror on this deployment — skipped');
+  }
+
+  record(
+    'compliance',
+    'revenue is read off the fills, not estimated',
+    typeof (real.payload?.revenue?.integratorFeeMicro ?? -1) === 'number',
+    `${real.payload?.revenue?.integratorFeeMicro ?? 0} µUSD over ${real.payload?.revenue?.fills ?? 0} fill(s)`,
+  );
+} catch (error) {
+  record('compliance', 'the compliance readout responds', false, error.message);
+}
+
 /* --- 9h. rehearsal mode --------------------------------------------- */
 group('9h. Rehearsal mode');
 try {

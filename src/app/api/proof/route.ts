@@ -11,6 +11,7 @@ import {
 import { aggregatePnl, computePnl, type MirrorPnl } from '@/lib/pnl';
 import { mirrorsForPlan, updateEarnings } from '@/lib/store';
 import { reconcile } from '@/lib/earnings';
+import { evaluateCompliance, summariseCompliance, type ComplianceVerdict } from '@/lib/verify';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,10 @@ export async function GET(request: NextRequest) {
 
     const proof = [];
     const pnlRows: MirrorPnl[] = [];
+    const complianceVerdicts: ComplianceVerdict[] = [];
+    /** The integrator fee this plan has actually collected, integer micro-USD. */
+    let revenueMicro = 0;
+    let revenueFills = 0;
 
     for (const mirror of mirrors) {
       let entry = null;
@@ -101,6 +106,26 @@ export async function GET(request: NextRequest) {
           };
         }
 
+        /*
+         * Compliance, from data this route already fetched. The mirror record
+         * holds the absolute levels this plan resolved to for THIS wallet; the
+         * order holds what is actually resting on the exchange. Comparing them
+         * is the difference between "3 wallets mirrored this" and "3 wallets
+         * ran it as published".
+         */
+        const compliance = evaluateCompliance({
+          tpPct: mirror.tpPct ?? 0,
+          slPct: mirror.slPct ?? 0,
+          plannedTakeProfit: mirror.takeProfitPrice,
+          plannedStopLoss: mirror.stopLossPrice,
+          actualTakeProfit: Number(order.attachedBracket?.takeProfit?.notionalPrice ?? '') || null,
+          actualStopLoss: Number(order.attachedBracket?.stopLoss?.notionalPrice ?? '') || null,
+          bracketOrderId: order.attachedBracket?.bracketOrderId ?? null,
+          bracketStatus: order.attachedBracket?.status ?? null,
+          entryPrice: Number(order.filled?.averageNotionalPrice ?? '') || null,
+        });
+        complianceVerdicts.push(compliance);
+
         // P&L from settled fills only.
         const pnl = computePnl({ entry: order, exit: exitOrder, currentPrice });
         pnlRows.push(pnl);
@@ -116,6 +141,14 @@ export async function GET(request: NextRequest) {
          * Only settled fills reach here; `reconcile` drops the rest and leaves
          * the record as an unpayaable estimate.
          */
+        for (const fill of [...(order.fills ?? []), ...(exitOrder?.fills ?? [])]) {
+          const fee = Number(fill.integratorFeeNotional ?? fill.integratorFeeAmount ?? 0);
+          if (Number.isFinite(fee) && fee > 0) {
+            revenueMicro += Math.round(fee * 1_000_000);
+            revenueFills += 1;
+          }
+        }
+
         const settledFills = [...(order.fills ?? []), ...(exitOrder?.fills ?? [])].map(fill => ({
           integratorFeeNotional: fill.integratorFeeNotional ?? null,
           integratorFeeAmount: fill.integratorFeeAmount ?? null,
@@ -140,6 +173,7 @@ export async function GET(request: NextRequest) {
           spendUsd: mirror.spendUsd,
           createdAt: mirror.createdAt,
           verified: true,
+          compliance,
           pnl,
           entry,
           bracket,
@@ -174,6 +208,20 @@ export async function GET(request: NextRequest) {
       totalFilled,
       currentPrice,
       pnl: aggregatePnl(pnlRows),
+      /**
+       * The headline the plan page leads with. "N wallets ran this as published"
+       * is only sayable because it was read back from the exchange.
+       */
+      compliance: summariseCompliance(complianceVerdicts),
+      /**
+       * Revenue from this plan's execution flow. What the deployment collected
+       * in integrator fees, read off the fills — the number the track asks
+       * about, and a number most submissions can only estimate.
+       */
+      revenue: {
+        integratorFeeMicro: revenueMicro,
+        fills: revenueFills,
+      },
       proof,
     });
   } catch (error) {

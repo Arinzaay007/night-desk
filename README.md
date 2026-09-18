@@ -78,7 +78,7 @@ Server routes (Next.js)  ──►  Flash API  https://flash.definitive.fi/v1
 | `/desk` | Positions and protection, with exits: cancel an open order, or close a filled position |
 | `/board` | Published plans ranked on realised P&L, with two other rankings a click away |
 | `/payouts` | Operator queue: who is owed what, and the two-step author payout |
-| `/api/quote`, `/api/order`, `/api/orders`, `/api/cancel`, `/api/close`, `/api/proof`, `/api/plans`, `/api/earnings`, `/api/assets`, `/api/balance`, `/api/setup-tx`, `/api/receipt`, `/api/warmup`, `/api/health` | Server routes |
+| `/api/quote`, `/api/order`, `/api/orders`, `/api/cancel`, `/api/close`, `/api/proof`, `/api/plans`, `/api/earnings`, `/api/assets`, `/api/balance`, `/api/setup-tx`, `/api/receipt`, `/api/warmup`, `/api/health` | Server routes (`/api/proof` also returns plan compliance and revenue) |
 
 ### The board
 
@@ -99,6 +99,43 @@ Two details that matter more than they look:
 
 The ordering rule lives in `src/lib/rank.ts` as a pure function with 24 assertions behind it
 (`npm run test:rank`) — including that the most-copied plan does not automatically lead.
+
+### Did they actually run it?
+
+A plan is not enforced. Nothing makes anyone follow it — they read the parameters and sign their own
+order. That is the whole point, and it is also the hole: *"mirror"* was a claim rather than a fact,
+and a claim is the first thing a sharp reviewer pokes at.
+
+It does not have to be a claim. Every mirror is an order on the exchange with its bracket levels in
+the fill data, and `/api/proof` already reads that back. So the plan page compares the protection
+that actually landed against the levels the plan asked for:
+
+```
+✓ protection attached                            wanted a take-profit / stop-loss pair
+✓ protection still live                          got active
+✓ take-profit at +20%                            wanted $264.34   got $264.34
+✓ stop-loss at -8%                               wanted $202.66   got $202.66
+✓ levels sit on the correct side of the entry     got correct
+```
+
+That is the difference between **"3 wallets mirrored this"** and **"3 wallets ran it as published,
+read back from the exchange."**
+
+**What it does not say.** It is a **readout, not a control**, and the UI says so in as many words.
+Nothing forces compliance; a mirror that deviates is still its own independent position, which is the
+product rather than a flaw in it. A compliance rate is also not a quality signal — an honest 100%
+says nothing about whether the plan was any good.
+
+**It never assumes the best.** A bracket that cannot be read is reported as `unknown`, never counted
+as a pass. An empty plan reports nothing to judge rather than a triumphant 0%. And the negative cases
+are the ones with tests: a mirror who takes the entry but doubles their stop from −8% to −16% is
+caught, asserted in `npm run test:verify`.
+
+### Revenue from the execution flow
+
+The plan page also totals what the plan has actually earned: the integrator fee **read off the
+settled fills**, not estimated from the quote. On the live test order that is `3375 µUSD` —
+`$0.003375`, exactly 25 bps of `$1.35`. 60% of it is credited to the plan's author.
 
 ### Authors get paid
 
@@ -205,6 +242,7 @@ thing from the terminal with two throwaway wallets.
 ## Known limitations (honest list)
 
 - **The board is best-effort.** Flash scopes order reads to a funder address, so there is no global feed of trades to index; the board can only see plans published through Night Desk. Its ledger picks a backend at runtime — Upstash Redis if `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, otherwise `./.data/store.json`, which is **ephemeral on serverless hosts**. `GET /api/health` reports which backend is live and warns when it is the ephemeral one, so the failure is visible before it bites rather than after a redeploy empties the board. Plan *viewing* never touches the store at all, so links keep working either way.
+- **Compliance is measurable, not enforced.** The plan page reads every mirror back from the exchange and reports whether the protection that landed matches what the plan asked for. That is a fact rather than a claim — but nothing *makes* anyone follow a plan, and a deviating mirror is still a legitimate independent position. Measured, not mandated.
 - **The author share is an off-chain obligation, not a contract.** Flash pays one integrator per order — this deployment — so it cannot split a fee across the authors whose plans get mirrored. `src/lib/earnings.ts` records what is owed and `/payouts` settles it as a plain USDC transfer. That is a real payment and a real ledger, but it is a promise this deployment keeps rather than one the exchange enforces: the money must be withdrawn from the integrator's Flash portfolio before there is anything to send. Every amount is an integer micro-USD and a forecast can never be withdrawn, but the obligation itself is only as good as the operator.
 - **P&L covers what the exchange reports, which is what a proof can honestly claim.** Realised figures come from settled fills on the entry and its bracket legs; the open remainder is marked at the current market price from a fresh quote. It is not a full accounting ledger: fees are taken as reported by Flash rather than recomputed, and a position that was moved by something outside Night Desk will read as an unexplained difference rather than being silently reconciled. Where a fill cannot be read back the row is marked unverified and excluded from the totals.
 - **Close-position was not verified end to end.** The sell request shape, its signature and the guards are all covered by the preflight, but no wallet we had access to holds a tokenised equity, so the round trip (sell → cancel pair) has not been executed against real funds. It is rung 2b on the funded ladder.
@@ -220,17 +258,17 @@ Flash has **no testnet** — testnets are not valid chain values in their API an
 equities only exist on mainnet. Testing is therefore layered:
 
 ```bash
-npm run check            # typecheck + 172 pure-layer assertions (no server needed)
-npm run rehearse         # 107 preflight checks, then the 35-assertion two-wallet mirror rehearsal
+npm run check            # typecheck + 224 pure-layer assertions (no server needed)
+npm run rehearse         # 114 preflight checks, then the 35-assertion two-wallet mirror rehearsal
 npm run test:earnings:live   # 38 assertions on the author ledger, through HTTP
 npm run dev              # with NEXT_PUBLIC_DRY_RUN=1 for a free full-flow rehearsal in the browser
 ```
 
 Three layers, and the first two cost nothing:
 
-1. **Preflight** — 107 checks over live market data, the parametric maths, bracket construction,
-   verified signatures, every guard, the cancel bytes, the author ledger, the board and secret
-   hygiene.
+1. **Preflight** — 114 checks over live market data, the parametric maths, bracket construction,
+   verified signatures, every guard, the cancel bytes, the author ledger, plan compliance, the board
+   and secret hygiene.
 2. **The mirror rehearsal** — `scripts/test-flow.mjs` runs the whole flow with two throwaway wallets:
    real quotes, real signatures, the real order route assembling the real payload, stopped one line
    before the exchange. It proves the headline claim — two wallets, two *independent* brackets — and

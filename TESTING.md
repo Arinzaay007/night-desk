@@ -42,7 +42,7 @@ npm run preflight              # against localhost:3000
 npm run preflight https://your-app.vercel.app   # against a deployment
 ```
 
-107 checks across twenty groups, driving the real server routes and the real API:
+114 checks across twenty-one groups, driving the real server routes and the real API:
 
 - Live market data (all 7 equities priced, none risk-flagged)
 - Balance discovery (funded wallet + a brand-new wallet, no crash)
@@ -86,6 +86,11 @@ directory before importing it — a test cannot pass while the shipped file is b
 - `npm run test:pnl` — **51 assertions** on `src/lib/pnl.ts`: token maths, open and underwater
   positions, closed at a profit and at a loss, partial exits with a pro-rated cost basis, unfilled
   orders, a missing price, and malformed input that must produce zero rather than `NaN`.
+- `npm run test:verify` — **52 assertions** on `src/lib/verify.ts`: tolerance boundaries, a clean
+  mirror, and above all the **negative** cases — a mirrorer who doubles their stop from −8% to −16%
+  must be caught, a cancelled bracket must not read as protected, missing data must report `unknown`
+  rather than pass, and an empty plan must not read as a 0% failure. A compliance readout that says
+  "as published" when it should say "deviated" is the app lying on the author's behalf.
 - `npm run test:rank` — **24 assertions** on `src/lib/rank.ts`: that realised profit outranks reach,
   that a loss is a real score, that an unpriced plan sinks rather than being ranked flat, the
   tie-breaks, and that the ranking neither mutates nor invents rows.
@@ -96,7 +101,7 @@ directory before importing it — a test cannot pass while the shipped file is b
   claimed, even when its id is named explicitly**, and a claimed record is terminal against a late
   fill report.
 
-`npm run check` runs the typecheck and all three suites — 172 assertions, no server, no funds.
+`npm run check` runs the typecheck and all four suites — 224 assertions, no server, no funds.
 
 There is also a fourth for the wiring rather than the arithmetic:
 
@@ -252,8 +257,8 @@ ladder is roughly **ten cents** in fees and gas. If you only want to prove the m
 at $1 costs you about **four cents**.
 
 ### Rung 0 — Readiness (free)
-- [ ] `npm run rehearse` → 107/107 and 35/35, with the dev server running
-- [ ] `npm run check` → 172/172 (51 + 24 + 97)
+- [ ] `npm run rehearse` → 114/114 and 35/35, with the dev server running
+- [ ] `npm run check` → 224/224 (51 + 24 + 97 + 52)
 - [ ] In the browser, with dry run on: press *Sign, execute & mirror* on a plan at **rehearse at $1**
       and watch all four steps complete. This is free and it exercises the wallet prompts.
 - [ ] Wallet A holds ≥ $2 USDC on Base **plus ~$1 of ETH for gas**
