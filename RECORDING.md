@@ -16,17 +16,18 @@ memory. Every quotation below is text that is really on the page.
 | Production build | clean |
 | Routes | `/`, `/create`, `/desk`, `/board`, `/payouts`, `/p/<plan>` all **HTTP 200** |
 | Live proof | 1 mirror, compliance **5/5 checks**, **100% published**, revenue **3375 µUSD** |
-| The plan page | renders "Did they run it?", "What the author earns", "Proof" |
+| The plan page | renders the level strip, the risk band, the compliance readout, the earnings ledger |
+| Browser check | all six routes drive clean in a real Chromium — **0 console errors**, no invented figures |
 
-**Two things are not software problems, and both would hurt on camera:**
+**Two blockers that used to be in this list are now closed. Do not go looking for them:**
 
-1. **Wallet B holds no USDC.** It spent its $1.35 on the live entry. `demo:check` calls this
-   a **blocker**: *"a mirror cannot be funded from an empty wallet."* The two-wallet beat
-   cannot run as written. The fix is a decision, not a code change — see §4.
-2. **A deployed link would show an empty board.** `.data/` is gitignored and a serverless
-   host cannot write its own filesystem, so the moment you deploy, the ledger is empty —
-   no mirrors, no compliance readout, no revenue, no board. The real order is still on
-   Base; only the index pointing at it is missing. Fix is in §2.
+1. ~~Wallet B holds no USDC.~~ **Both wallets are funded and verified on Base.** B (the author)
+   holds **1.225363 USDC**; A (the mirror) holds **1.3499 USDC**. The two-wallet beat in §4
+   can run as written. A has never sent a transaction, so its **first** action is the two
+   one-time approvals in §4 — budget two extra prompts and don't narrate them as the trade.
+2. ~~A deployed link would show an empty board.~~ **The ledger is on Upstash**, and the
+   deployment is verified durable: the board shows **1 plan · 1 mirror · $1.35 notional**
+   and the plan page reads compliance back live. Nothing to seed, nothing to re-deploy.
 
 **Two warnings that are false alarms, so you don't chase them:**
 
@@ -50,7 +51,7 @@ submission form, so the video and the form agree.
 
 - [ ] Two browser profiles: **A** in one, **B** in the other. Never switch mid-recording.
 - [ ] The plan link already open in a third tab, obtained with the **Copy link** button —
-      never by hand-selecting it. A plan ID is ~290 characters and one wrong character
+      never by hand-selecting it. A plan ID is 251 characters and one wrong character
       makes it unreadable (the app fails loudly, but it will cost you a take).
 - [ ] Record at 1080p, cursor visible, notifications silenced, extensions off.
 - [ ] `/desk` is **empty until a wallet is connected** — connect first, then it fills.
@@ -70,24 +71,21 @@ show the fill).
 
 ---
 
-## 2. Move the ledger before you deploy
+  ## 2. The ledger — done, skip this
 
-Non-negotiable, and it is one command. Create a free database at
-[console.upstash.com](https://console.upstash.com), then:
+  This used to be a step and is now just a fact. The ledger lives on Upstash and the host has
+  `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `DEFINITIVE_API_KEY`,
+  `NEXT_PUBLIC_DRY_RUN=0` and `INTEGRATOR_FEE_BPS=25` set for production. Verified on the
+  deployed URL, not assumed: the board renders **1 plan**, **1 mirror**, **$1.35 notional**,
+  and the plan page reads compliance back as **100% published** with **3375 µUSD** of settled
+  fee. A judge clicking your submitted link sees exactly this.
 
-```bash
-cd nightdesk
-UPSTASH_REDIS_REST_URL=... UPSTASH_REDIS_REST_TOKEN=... node scripts/seed-ledger.mjs
-```
-
-It refuses to run without credentials, merges rather than overwrites, and reads the value
-back to confirm. Then set **both** variables on the host, along with `DEFINITIVE_API_KEY`,
-`NEXT_PUBLIC_DRY_RUN=0`, and `INTEGRATOR_FEE_BPS=25`.
-
-**Why it is not optional:** without it the deployed app has the real order on Base but no
-record it exists, so a judge clicking your submitted link sees an empty board. Everything
-that makes this build worth submitting — the compliance readout, the fee, the ranked board
-— reads from that ledger.
+  The trap it used to describe is still worth knowing, because it is silent: **deploying
+  without a reachable store serves an empty board without erroring.** `.data/` is gitignored
+  and a serverless host cannot write its own filesystem, so the real order stays on Base while
+  the index pointing at it disappears. Everything worth submitting — the compliance readout,
+  the fee, the ranked board — reads from that ledger. If you ever redeploy and the board comes
+  up empty, that is this, and the fix is the two Upstash variables, not the code.
 
 ---
 
@@ -131,25 +129,44 @@ Talk over the button instead:
 > link. Two signatures, one position. The author of the plan you're about to see did
 > exactly this at midnight."
 
-### Beat 3 — It is a link, not a post · `/p/<plan>` · 30s
+  ### Beat 3 — It is a link, not a post · `/p/<plan>` · 30s
 
-The header reads **A published plan**. Below it: `NVDAc · market entry`, the note
-*"the great" — published by `0x59f8…2fb2`*, and three cards:
+  The page opens on three pills: **PLAN LIVE** · *published 4h ago* · **100% verified**, and
+  the headline **"NVDAc momentum plan, fully protected."** Below it the author
+  (`0x59f8…2fb2`) and three counters — *mirrors 1 · notional $1.35 · open P&L −$0.12*.
 
-```
-Size per mirror  100 %   of each mirroring wallet
-Take-profit      +20 %   levels set at mirror time
-Stop-loss        −8 %    levels set at mirror time
-```
+  Then the strip, and this is the shot to hold on:
 
-> "This is the whole social layer. No feed, no followers, no chat. There is a link.
-> Everything needed to run this plan is in the URL, which is why it cannot rot."
+  ```
+  ENTRY          TAKE-PROFIT    STOP-LOSS      SIZE
+  $240.45        $264.34        $202.66        100%
+  market         +20%           −8%            of wallet
+  ```
 
-Then the line under the cards, which is the honest core of the design:
+  And the risk band under it, which is the whole idea in one bar — the ember marker is
+  sitting at **$240.45**, the price this mirror actually got filled at:
 
-> "The levels move with the live price at the moment *you* mirror, because your bracket is
-> your own order. Two mirrors opened an hour apart are two independent positions, not one
-> shared trade."
+  ```
+  STOP −8% ──────$202.66 ──── $240.45 ──────── $264.34──── TARGET +20%
+  market now $219.53 (−8.7% from your entry)   inside your bracket
+  ```
+
+  > "This is the whole social layer. No feed, no followers, no chat. There is a link, and
+  > everything needed to run this plan is in the URL — which is why it cannot rot."
+
+  Then the honest core, and **use the marker to point at it**:
+
+  > "The levels move with the live price at the moment *you* mirror, because your bracket is
+  > your own order. Two mirrors opened an hour apart are two independent positions, not one
+  > shared trade. And the entry on that bar isn't a claim — it's the price the exchange
+  > filled *me* at."
+
+  The market has run against the position, so say so before anyone reads it off the screen:
+
+  > "The position is down 8.7% and the stop sits 7.7% below the current price. Two things
+  > about that. One, this is one dollar thirty-five — at that size the fee is 8% of the
+  > trade, and at twenty-five dollars it's under a percent. Two, if the stop fires while we
+  > talk, that's not a bug, that's the product."
 
 ### Beat 4 — The second wallet · same page, profile B · 60s
 
@@ -199,30 +216,45 @@ and its transaction hash. Then **Close position** or **Cancel order**, narrating
 
 ### Beat 6 — The board · `/board` · 40s
 
-**Board — "Plans, ranked by the money their mirrors actually booked."** A toggle across
-**Realised P&L / Return % / Wallets**, and one row:
+  **Board — "Plans, ranked by the money their mirrors actually booked."** The snapshot strip
+  reads **1 plan tracked · 1 mirror · $1.35 notional · $0.00 realised**, a sort toggle across
+  **Realised P&L / Return % / Wallets / Most recent**, then one row:
 
-```
-—  NVDAc   2h ago   100% · +20% / −8%   "the great"   [reading fills…]   1   $1.35 in 0x59f8…2fb2
-```
+  ```
+  NVDAc [TOP]   100% size · +20% · −8%   1 mirror   $1.35   $0.00   −8.70%   100%
+  @0x59f8…2fb2 · 4h ago                            1 mirror · $1.35 deployed      read back from chain
+  ```
 
-> "Ranked on realised profit and loss — money that actually settled, read back from the
-> exchange. Not screenshots, not followers."
+  **Watch the row fill in.** The store pre-paints the row, then the page reads each plan's
+  fills back from the exchange — so the four numeric cells briefly read *reading…* before the
+  real values land. Let it happen on camera; it is the difference between a number and a
+  lookup:
 
-Say why **Realised P&L** is the default and why **Return %** exists when every mirror picks
-its own size. And pre-empt the obvious reading of the em-dash:
+  > "Those cells were empty a second ago. Nothing is cached — the page is reading the fills
+  > back from the exchange right now, and it won't print a zero it hasn't verified."
 
-> "Nothing has closed yet, so every plan books zero realised and the ranking falls through
-> to open performance. A plan whose fills haven't been read back yet is labelled rather than
-> ranked flat — unpriced is not the same as zero."
+  > "Ranked on realised profit and loss — money that actually settled, read back from the
+  > exchange. Not screenshots, not followers."
 
-### Beat 7 — Did they run it? · back to `/p/<plan>` · 45s
+  Say why **Realised P&L** is the default and why **Return %** exists when every mirror picks
+  its own size. Then pre-empt the reading of the two numbers that look like they disagree:
 
-Scroll to **Did they run it?** — *"Every mirror is an order on the exchange, so we can read
-back what actually landed and compare it against the levels above. Anything else is just a
-claim."*
+  > "Realised is zero and return is minus 8.7%, and both are right. Nothing has closed, so
+  > nothing has been *booked* — that's the realised column. The return is what the open
+  > position is marked at, which is the fee drag on a one-dollar-thirty-five trade. A plan
+  > whose fills haven't been read back yet gets an em-dash and sinks to the bottom, because
+  > **unpriced is not the same as flat**."
 
-The panel shows a rate and one row per check:
+  ### Beat 7 — Did they run it? · back to `/p/<plan>` · 45s
+
+  Scroll to **Did they run it?** — *"Every mirror is an order on the exchange, so we can read
+  back what actually landed and compare it against the levels above. Anything else is just a
+  claim."*
+
+  A gauge reads **100% — AS PUBLISHED**, next to **1 / 1** judgeable mirrors and a three-up of
+  **published · deviated · unprotected**. (A fourth state, **unknown**, only appears when the
+  exchange can't be read; if it does, it is counted as unknown and never as a pass.) The panel
+  below shows one row per check:
 
 ```
 ✓ protection attached                         a take-profit / stop-loss pair
@@ -260,10 +292,14 @@ states:
 > protective leg, because the bracket charges its own fee — pay the entry alone and you
 > underpay exactly the authors whose plans worked."
 
-Then **Proof** — fills, venue, transaction hashes, read back per funder:
+  Then scroll back up to the **Raw proof JSON** button next to **Copy plan link**, and open it
+  — that is the same readout as an unformatted API response, fills and transaction hashes
+  included, read back per funder. The fills and their BaseScan links also sit inline under the
+  compliance section, next to the fee that was actually charged.
 
-> "Every number on this page clicks through to BaseScan. The whole point is that you don't
-> have to take my word for any of it."
+  > "Every number on this page clicks through to BaseScan, and this button hands you the raw
+  > response the page was built from. The whole point is that you don't have to take my word
+  > for any of it."
 
 Close on the plan URL itself.
 
@@ -272,15 +308,23 @@ show. If the queue is empty, skip it and say why rather than dwelling.
 
 ---
 
-## 4. The one decision to make before you record
+  ## 4. The one decision to make before you record
 
-**Spend wallet A's $1.35 mirroring B's plan?**
+  **Spend wallet A's $1.35 mirroring B's plan?** A is funded; this is now purely a call about
+  $0.11 and one live beat.
 
-- **Yes (recommended).** Real cost ~**$0.11** — the rest becomes NVDAc you still own. Buys
-  the live second-wallet beat, a genuine author payout row, compliance 2/2, and retires the
-  self-mirror weakness.
-- **No.** Everything else in this guide still works. Beat 4 becomes narration over B's real
-  mirror, and you say so out loud.
+  - **Yes (recommended).** Real cost ~**$0.11** — the rest becomes NVDAc you still own. Buys
+    the live second-wallet beat, a genuine author payout row, compliance 2/2, and retires the
+    self-mirror weakness.
+  - **No.** Everything else in this guide still works. Beat 4 becomes narration over B's real
+    mirror, and you say so out loud.
+
+  **Do the approvals before you hit record, not during it.** A has never transacted, so its
+  first bracket trade needs two one-time ERC-20 approvals. Open
+  [night-desk-swart.vercel.app/create](https://night-desk-swart.vercel.app/create) in profile
+  A, connect A, and press **Pre-warm NVDAc**. Two prompts, ~0.0000006 ETH of gas at the
+  current base fee, and then the mirror itself is the clean two-signature beat. Signing them
+  on camera is four prompts in a row and reads as a black box.
 
 Either way, do **not** mirror at a small size to save money: Flash's floor means a tiny
 order fails outright or eats a far larger fee fraction. At $1.35 the all-in fee is ~8%; at
