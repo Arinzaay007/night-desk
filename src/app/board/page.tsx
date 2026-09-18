@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { loadBoardRows } from '@/lib/plans';
-import { BoardTable } from './BoardTable';
+import { BoardView } from './BoardView';
+import type { BoardPlan } from '@/lib/boardPlan';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,56 +8,52 @@ export const dynamic = 'force-dynamic';
 /**
  * The board.
  *
- * Rows are read server-side so the table is real content in the first paint;
- * only the performance numbers, which cost an exchange round trip each, arrive
- * afterwards.
+ * Rows are read server-side so the table is real content in the first paint —
+ * a plan's existence, its levels and how much was deployed are facts the ledger
+ * already holds. What each mirror actually *earned* costs an exchange round trip
+ * per plan, so those numbers arrive after paint and every row carries `priced:
+ * false` until they do. Nothing is rendered as a zero in the meantime.
  */
 export default async function BoardPage() {
-  const { rows, total } = await loadBoardRows();
+  const { rows } = await loadBoardRows();
 
-  return (
-    <>
-      <main className="shell">
-        <section style={{ padding: '40px 0 20px' }}>
-          <p className="eyebrow">Board</p>
-          <h1 style={{ fontSize: 34 }}>Plans, ranked by the money their mirrors actually booked.</h1>
-          <p className="lede" style={{ fontSize: 16 }}>
-            Every row is a plan published through Night Desk and run by at least one wallet. Ranking
-            reads the fills back from the exchange — realised profit is what settled, not what was
-            quoted. The exchange scopes order reads to a funder address, so there is no global feed
-            of Flash trades to index: a plan has to be published to be shareable, which makes this
-            the only honest version of this number.
-          </p>
-        </section>
+  const plans: BoardPlan[] = rows.map(row => ({
+    // The short key is what /api/proof indexes by; the long id is the link.
+    planKey: row.planKey,
+    id: row.planId ?? '',
+    symbol: row.symbol,
+    author: row.author ?? '',
+    authorHandle: shortAuthor(row.author),
+    note: row.note ?? '',
+    thesis: '',
+    sizePct: row.sizePct ?? 0,
+    tpPct: row.tpPct ?? 0,
+    slPct: row.slPct ?? 0,
+    entryType: 'market',
+    // The plan published percentages; the absolute stop is whatever the first
+    // mirror's bracket landed at. Shown as recorded, never recomputed.
+    entryPrice: 0,
+    takeProfitPrice: row.takeProfitPrice,
+    stopLossPrice: row.stopLossPrice,
+    createdAt: row.createdAt,
+    mirrors: row.mirrors,
+    notional: row.notional,
+    realisedUsd: 0,
+    unrealisedUsd: 0,
+    returnPct: null,
+    open: row.mirrors,
+    closed: 0,
+    compliancePct: 0,
+    status: 'live',
+    priced: false,
+    unreadable: false,
+  }));
 
-        <section className="section" style={{ paddingTop: 10 }}>
-          {rows.length === 0 ? (
-            <div className="card">
-              <p style={{ marginBottom: 12 }}>
-                Nothing published yet. The first plan you compose shows up here the moment it is
-                mirrored.
-              </p>
-              <Link className="button small" href="/create">
-                Publish the first one
-              </Link>
-            </div>
-          ) : (
-            <BoardTable rows={rows} />
-          )}
+  return <BoardView rows={plans} />;
+}
 
-          <p className="tiny dim" style={{ marginTop: 16 }}>
-            {total > 0 && (
-              <>
-                {total} mirrored {total === 1 ? 'position' : 'positions'} behind this board.{' '}
-              </>
-            )}
-            Realised figures come only from fills that actually settled; unrealised is the part still
-            held, marked at the current market. A plan whose mirrors cannot be read back is reported
-            as <em>unreadable</em> rather than quietly ranked at zero, and plans that failed to price
-            keep their retry button.
-          </p>
-        </section>
-      </main>
-    </>
-  );
+function shortAuthor(address?: string): string {
+  if (!address) return 'unknown';
+  if (address.length < 12) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }

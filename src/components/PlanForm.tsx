@@ -31,9 +31,15 @@ interface PlanFormProps {
   wallet: WalletState;
   /** Mirror mode: the author's address, shown for context. */
   authorLabel?: string;
+  /**
+   * The parent already renders a wallet bar (the plan page puts one at the top
+   * of the mirror panel), so drop the fallback one and avoid two stacked
+   * connect prompts in a single card.
+   */
+  hideWalletBar?: boolean;
 }
 
-export function PlanForm({ mode, initial, wallet, authorLabel }: PlanFormProps) {
+export function PlanForm({ mode, initial, wallet, authorLabel, hideWalletBar }: PlanFormProps) {
   const [assets, setAssets] = useState<AssetRow[]>(
     EQUITIES.map(e => ({ symbol: e.symbol, name: e.name, address: e.address, price: 0, volume24h: 0 })),
   );
@@ -459,7 +465,7 @@ export function PlanForm({ mode, initial, wallet, authorLabel }: PlanFormProps) 
           now so the trade itself is two signature prompts — worth doing before you record.
         </p>
 
-        {!wallet.signer && (
+        {!wallet.signer && !hideWalletBar && (
           <div style={{ marginTop: 16 }}>
             <WalletBar wallet={wallet} />
           </div>
