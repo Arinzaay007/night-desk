@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "preflight": "node scripts/preflight.mjs",
     "verify:key": "node scripts/verify-key.mjs",
+    "seed": "node scripts/seed-ledger.mjs",
     "check": "npm run typecheck && npm run test:pnl && npm run test:rank && npm run test:earnings && npm run test:verify",
     "test:pnl": "node scripts/test-pnl.mjs",
     "test:rank": "node scripts/test-rank.mjs",
