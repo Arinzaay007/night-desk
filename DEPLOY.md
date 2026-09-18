@@ -8,26 +8,16 @@ Order matters. Each step assumes the one above it. Total time if nothing fights 
 
 ---
 
-## Step 1 — Make the repo public
+## Step 1 — Make the repo public ✅ DONE
 
-Everything that would have leaked has been dealt with already: the five scratch verifiers
-are gone, `.env.local` and `.data/` are ignored, and a full-history scan for `dpka_` finds
-only **Definitive's own published example key** from their docs — not ours. `your key`
-appears nowhere in the history.
+**Live at [github.com/Arinzaay007/night-desk](https://github.com/Arinzaay007/night-desk).**
+10 commits on `main`, public, verified readable with no credentials.
 
-**You:** create an empty, **public** repo named `night-desk` at
-[github.com/new](https://github.com/new). Do not add a README, `.gitignore` or licence —
-the repo already has all three and GitHub's versions will collide.
+The pre-public audit before pushing found: the five scratch verifiers removed, `.env.local`
+and `.data/` ignored, and a full-history scan for `dpka_` matching only **Definitive's own
+published example key** from their docs — not ours. `your key` appears nowhere.
 
-Then tell me the URL, and I will push.
-
-```bash
-# what I will run, for the record
-git remote add origin <YOUR_REPO_URL>
-git push -u origin main
-```
-
-> **Private repo will fail the track.** The rules say *"build a new open-source project
+> **Private would have failed the track.** The rules say *"build a new open-source project
 > specifically for Runtime."* Public is the requirement, not a preference.
 
 ---
