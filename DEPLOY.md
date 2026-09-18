@@ -15,7 +15,13 @@ Order matters. Each step assumes the one above it. Total time if nothing fights 
 
 The pre-public audit before pushing found: the five scratch verifiers removed, `.env.local`
 and `.data/` ignored, and a full-history scan for `dpka_` matching only **Definitive's own
-published example key** from their docs — not ours. `your key` appears nowhere.
+published example key** from their docs — not ours.
+
+> **One correction, made after the first push.** This file originally quoted the *first
+> thirteen characters* of our own Flash key. It is not a usable credential on its own, but
+> it had no business being public, so the history was rewritten with `git filter-branch`
+> and force-pushed. A fresh anonymous clone confirms the prefix is absent from every
+> commit, every file and every commit message. Recorded here rather than quietly fixed.
 
 > **Private would have failed the track.** The rules say *"build a new open-source project
 > specifically for Runtime."* Public is the requirement, not a preference.
@@ -53,7 +59,7 @@ Before pressing Deploy, add these **Environment Variables** (all environments):
 
 | Variable | Value | Why |
 | --- | --- | --- |
-| `FLASH_API_KEY` | `<your Flash key from .env.local>` from `.env.local` | Server-side only. Never `NEXT_PUBLIC_`. |
+| `FLASH_API_KEY` | the `dpka_…` value in `.env.local` | Server-side only. Never `NEXT_PUBLIC_`. |
 | `NEXT_PUBLIC_DRY_RUN` | `0` | Armed. `1` turns the live demo into a rehearsal. |
 | `INTEGRATOR_FEE_BPS` | `25` | Your fee rate. This is the revenue. |
 | `UPSTASH_REDIS_REST_URL` | from step 2 | The durable ledger. |
