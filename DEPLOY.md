@@ -49,42 +49,33 @@ on `orderId`, keeps earnings rows whole, and reads the value back to confirm.
 
 ---
 
-## Step 3 — Deploy
+## Step 3 — Deploy ✅ DONE
 
-**You:** [vercel.com](https://vercel.com), sign in with GitHub, **Add New → Project**,
-pick `night-desk`. Framework auto-detects as Next.js; leave the build settings alone.
+**Live at [night-desk-swart.vercel.app](https://night-desk-swart.vercel.app)**
 
-Before pressing Deploy, add these **Environment Variables** (all environments):
+Project `night-desk` on Vercel. All six environment variables set for
+production, preview and development. Verified on the deployed origin:
 
-| Variable | Value | Why |
-| --- | --- | --- |
-| `FLASH_API_KEY` | the `dpka_…` value in `.env.local` | Server-side only. Never `NEXT_PUBLIC_`. |
-| `NEXT_PUBLIC_DRY_RUN` | `0` | Armed. `1` turns the live demo into a rehearsal. |
-| `INTEGRATOR_FEE_BPS` | `25` | Your fee rate. This is the revenue. |
-| `UPSTASH_REDIS_REST_URL` | from step 2 | The durable ledger. |
-| `UPSTASH_REDIS_REST_TOKEN` | from step 2 | |
-| `OPERATOR_TOKEN` | a long random string | Guards the payout endpoints. |
-
-Then verify, in this order:
-
-```bash
-curl -s https://<your-app>.vercel.app/api/health | python3 -m json.tool
+```
+/api/health   store.backend = upstash   durable = true   dryRun = false
+/api/proof    1 mirror · compliance 1/1 = 100% · revenue 3375 µUSD
+routes        /  /create  /desk  /board  /payouts  /p/<plan>   all HTTP 200
+hygiene       no Flash key and no Upstash host in the served HTML
 ```
 
-- `dryRun` must be **false** — if it is `true` you set `NEXT_PUBLIC_DRY_RUN` wrong, and
-  nothing on camera will be real.
-- `store.backend` must be **`upstash`**. If it says `memory` or `file`, the two Upstash
-  variables did not take and your board will be empty.
+`NEXT_PUBLIC_DRY_RUN=0` is load-bearing: it is inlined at **build** time, so changing it
+requires a redeploy, not just an env edit. A stale `1` silently turns the live demo into a
+rehearsal.
+
+**This is the URL for the submission form and the X post.** Not the sandbox, not the
+preview deployment URL — the alias above.
+
+To ship a change after this point:
 
 ```bash
-curl -s "https://<your-app>.vercel.app/api/proof?planKey=u8201h" | python3 -m json.tool
+npx vercel deploy --prod --yes --token=<token>
 ```
 
-Must return `"mirrors": 1` and `"ratePct": 100`. If it returns `"mirrors": 0`, the seed in
-step 2 did not land — re-run it.
-
-> **Note the short key.** `/api/proof` takes `planKey=u8201h`, **not** the long base64 plan
-> ID. The long ID silently returns zero mirrors.
 
 ---
 
