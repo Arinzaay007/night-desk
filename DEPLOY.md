@@ -22,29 +22,25 @@ published example key** from their docs — not ours. `your key` appears nowhere
 
 ---
 
-## Step 2 — Make the ledger durable
+## Step 2 — Make the ledger durable ✅ DONE
 
-A serverless host cannot write its own filesystem, so a deployed Night Desk starts with an
-**empty ledger** — no mirrors, no compliance readout, no revenue, no ranked board. The real
-order is still on Base; only the index pointing at it is missing.
+Database: **`literate-glowworm-285241.upstash.io`**
 
-Free, no card, ~5 minutes:
+Created via Upstash's agent endpoint (`upstash.com/start-redis`) — no signup, no console
+UI. The five-minute button hunt was unnecessary.
 
-1. [console.upstash.com](https://console.upstash.com) → **Create Database** → any name,
-   region **us-east-1** (closest to Vercel's default), **Free** plan.
-2. On the database page, copy **`UPSTASH_REDIS_REST_URL`** and
-   **`UPSTASH_REDIS_REST_TOKEN`**.
-3. Push the existing ledger up:
+Seeded and verified locally: `backend: upstash`, `durable: true`, and `/api/proof` reading
+**1 mirror · 100% published · 3375 µUSD** back out of Redis rather than off disk.
 
-```bash
-cd nightdesk
-UPSTASH_REDIS_REST_URL=... UPSTASH_REDIS_REST_TOKEN=... npm run seed
-```
+> ⚠️ **This database expires 3 days after creation unless claimed.** Claim it at
+> `upstash.com/start-redis/console/4d1b038a-504d-41cb-88ee-7e5c353ce1c8` — click **Claim**.
+> If judging happens after Monday and the database is unclaimed, the board goes empty and
+> the submission shows nothing.
 
-It prints what it found locally, what is already remote, and reads the value back to
-confirm. It **merges** rather than overwrites, so running it twice is safe.
+The credentials live in `.env.local` (gitignored). They must also be set on the host.
 
-Expected: `+1 mirror(s) the deployed app did not have`.
+`npm run seed` remains the tool for re-pushing a local ledger into Redis. It merges rather
+than overwrites, so running it twice is safe.
 
 ---
 
