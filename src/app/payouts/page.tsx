@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Header } from '@/components/Header';
 
 /**
  * The operator queue: who is owed what, and the two-step payout.
@@ -131,7 +130,6 @@ export default function PayoutsPage() {
 
   return (
     <>
-      <Header />
       <main className="shell">
         <section className="section">
           <div className="spread" style={{ marginBottom: 6 }}>

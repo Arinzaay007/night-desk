@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Header } from '@/components/Header';
 import { PlanForm } from '@/components/PlanForm';
 import { CompliancePanel } from '@/components/CompliancePanel';
 import { EarningsPanel } from '@/components/EarningsPanel';
@@ -58,7 +57,6 @@ export default function PlanPage() {
   if (!plan) {
     return (
       <>
-        <Header />
         <main className="shell">
           <section className="hero">
             <h1 style={{ fontSize: 32 }}>That plan link is not readable.</h1>
@@ -81,7 +79,6 @@ export default function PlanPage() {
 
   return (
     <>
-      <Header />
       <main className="shell">
         <section style={{ padding: '40px 0 22px' }}>
           <div className="spread" style={{ alignItems: 'flex-start' }}>

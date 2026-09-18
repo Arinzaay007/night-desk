@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Header } from '@/components/Header';
 import { Steps } from '@/components/Steps';
 import { WalletBar } from '@/components/WalletBar';
 import { cancelOpenOrder, closePosition, type ProgressStep } from '@/lib/execute';
@@ -132,7 +131,6 @@ export default function DeskPage() {
 
   return (
     <>
-      <Header />
       <main className="shell">
         <section style={{ padding: '40px 0 20px' }}>
           <p className="eyebrow">My desk</p>

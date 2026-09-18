@@ -1,3 +1,452 @@
+@import "tailwindcss";
+
+/* ============================================================
+   NIGHT DESK — design tokens
+   Deep midnight base · ember accent · mint / rose signals
+   ============================================================ */
+@theme {
+  /* ---- typefaces ---- */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+
+  /* ---- ink (surfaces) ---- */
+  --color-ink-950: #04060c;
+  --color-ink-900: #070a13;
+  --color-ink-850: #0a0e1a;
+  --color-ink-800: #0d1220;
+  --color-ink-750: #111729;
+  --color-ink-700: #161d33;
+  --color-ink-600: #1e2742;
+  --color-ink-500: #2a3452;
+
+  /* ---- mist (text) ---- */
+  --color-mist-50: #f4f6fb;
+  --color-mist-100: #e8ecf6;
+  --color-mist-200: #d0d8ea;
+  --color-mist-300: #aab5cf;
+  --color-mist-400: #8590ac;
+  --color-mist-500: #67718e;
+  --color-mist-600: #4d5670;
+
+  /* ---- ember (primary) ---- */
+  --color-ember-200: #ffe3c6;
+  --color-ember-300: #ffc794;
+  --color-ember-400: #ffab63;
+  --color-ember-500: #ff8f42;
+  --color-ember-600: #f9731a;
+  --color-ember-700: #d95c0c;
+
+  /* ---- signals ---- */
+  --color-mint-200: #c4fbe4;
+  --color-mint-300: #7df3c8;
+  --color-mint-400: #34e0a0;
+  --color-mint-500: #10c98a;
+  --color-mint-600: #0aa873;
+
+  --color-rose-200: #ffd6de;
+  --color-rose-300: #ffa8b8;
+  --color-rose-400: #ff7d95;
+  --color-rose-500: #fb4d6d;
+  --color-rose-600: #e5304f;
+
+  --color-violet-300: #c2b4ff;
+  --color-violet-400: #a48cff;
+  --color-violet-500: #7c66ff;
+
+  --color-gold-300: #ffe4a8;
+  --color-gold-400: #ffcf70;
+}
+
+/* ============================================================
+   base
+   ============================================================ */
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: rgb(255 255 255 / 0.07);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ink-950);
+    color: var(--color-mist-100);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: rgb(255 143 66 / 0.28);
+    color: #fff;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* thin, dark scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-ink-950);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-600);
+    border-radius: 999px;
+    border: 2px solid var(--color-ink-950);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-500);
+  }
+}
+
+/* ============================================================
+   utilities
+   ============================================================ */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-serif-it {
+    font-family: var(--font-serif);
+    font-style: italic;
+    letter-spacing: -0.015em;
+    font-weight: 400;
+  }
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+  }
+
+  /* text gradients */
+  .text-gradient-ember {
+    background-image: linear-gradient(102deg, #ffe3c6 0%, #ffab63 34%, #ff8f42 66%, #ffb877 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-mist {
+    background-image: linear-gradient(180deg, #f4f6fb 0%, #aab5cf 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-mint {
+    background-image: linear-gradient(120deg, #c4fbe4 0%, #34e0a0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* glass surfaces */
+  .glass {
+    background: linear-gradient(
+      160deg,
+      rgb(255 255 255 / 0.055) 0%,
+      rgb(255 255 255 / 0.018) 48%,
+      rgb(255 255 255 / 0.032) 100%
+    );
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid rgb(255 255 255 / 0.075);
+  }
+  .glass-deep {
+    background: linear-gradient(165deg, rgb(17 23 41 / 0.92) 0%, rgb(8 11 20 / 0.94) 100%);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    border: 1px solid rgb(255 255 255 / 0.08);
+  }
+
+  /* hairline rules */
+  .hairline-t {
+    border-top: 1px solid rgb(255 255 255 / 0.07);
+  }
+  .hairline-b {
+    border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  }
+
+  /* glow shadows */
+  .glow-ember {
+    box-shadow:
+      0 0 0 1px rgb(255 143 66 / 0.22),
+      0 12px 40px -12px rgb(255 143 66 / 0.35),
+      0 4px 12px -4px rgb(255 143 66 / 0.18);
+  }
+  .glow-soft {
+    box-shadow:
+      0 24px 70px -22px rgb(0 0 0 / 0.75),
+      0 8px 26px -12px rgb(0 0 0 / 0.55);
+  }
+
+  /* animated aurora blob */
+  .aurora {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(90px);
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  /* fine grid overlay */
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.032) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.032) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 92% 76% at 50% 22%, #000 22%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 92% 76% at 50% 22%, #000 22%, transparent 78%);
+  }
+
+  /* film grain */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+
+  /* marquee ticker */
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 62s linear infinite;
+  }
+  .marquee-track-slow {
+    display: flex;
+    width: max-content;
+    animation: marquee 96s linear infinite;
+  }
+  .marquee-mask {
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  .pause-on-hover:hover .marquee-track,
+  .pause-on-hover:hover .marquee-track-slow {
+    animation-play-state: paused;
+  }
+
+  /* range slider styling */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.11);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 19px;
+    height: 19px;
+    border-radius: 999px;
+    background: linear-gradient(150deg, #ffc794, #ff8f42);
+    border: 2px solid rgb(4 6 12 / 0.85);
+    box-shadow: 0 4px 16px rgb(255 143 66 / 0.5);
+    cursor: grab;
+    transition: transform 0.14s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.13);
+  }
+  input[type="range"]::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.22);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 19px;
+    height: 19px;
+    border-radius: 999px;
+    background: linear-gradient(150deg, #ffc794, #ff8f42);
+    border: 2px solid rgb(4 6 12 / 0.85);
+    cursor: grab;
+  }
+
+  /* focus visibility */
+  .focus-ring:focus-visible {
+    outline: 2px solid rgb(255 143 66 / 0.7);
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================================
+   keyframes
+   ============================================================ */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2.5%, -3.5%, 0) scale(1.07);
+  }
+}
+@keyframes float-slower {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.04);
+  }
+  50% {
+    transform: translate3d(-3%, 2.5%, 0) scale(0.95);
+  }
+}
+.animate-float-slow {
+  animation: float-slow 19s ease-in-out infinite;
+}
+.animate-float-slower {
+  animation: float-slower 26s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.85;
+  }
+  80%,
+  100% {
+    transform: scale(2.05);
+    opacity: 0;
+  }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 2.4s cubic-bezier(0.22, 0.68, 0.36, 1) infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -180% 0;
+  }
+  to {
+    background-position: 180% 0;
+  }
+}
+.animate-shimmer {
+  background-size: 220% 100%;
+  animation: shimmer 2.8s linear infinite;
+}
+
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: var(--dash, 1200);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.animate-draw {
+  stroke-dasharray: var(--dash, 1200);
+  animation: draw-line 2.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes blink-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+.animate-blink {
+  animation: blink-dot 1.7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* ============================================================
+   SELF-HOSTED FACES
+   The design pulled these four from the Google Fonts CDN. They are now
+   loaded by next/font and self-hosted, so the same tokens resolve to files
+   served from this origin. Declared outside @theme so it wins the cascade
+   against Tailwind's generated :root block.
+   ============================================================ */
+:root {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+}
+
+/* ============================================================
+   LEGACY LAYER
+   The functional surfaces (/create, /desk, /board, /p/[id], /payouts)
+   still use these classes. They are kept unlayered so they continue to
+   win the cascade against Tailwind utilities, while the design tokens
+   above supply the palette, typefaces and canvas.
+   ============================================================ */
+
 :root {
   --bg: #07080b;
   --bg-soft: #0c0e13;
@@ -19,23 +468,6 @@
 }
 
 * { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-body {
-  background-image:
-    radial-gradient(1100px 500px at 12% -10%, rgba(255, 159, 69, 0.10), transparent 60%),
-    radial-gradient(900px 450px at 100% 0%, rgba(80, 120, 255, 0.07), transparent 55%);
-  background-repeat: no-repeat;
-  min-height: 100vh;
-}
 
 a { color: inherit; text-decoration: none; }
 

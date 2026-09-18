@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Header } from '@/components/Header';
 import { loadBoardRows } from '@/lib/plans';
 import { BoardTable } from './BoardTable';
 
@@ -18,7 +17,6 @@ export default async function BoardPage() {
 
   return (
     <>
-      <Header />
       <main className="shell">
         <section style={{ padding: '40px 0 20px' }}>
           <p className="eyebrow">Board</p>

@@ -165,6 +165,14 @@ export interface FlashAsset {
   price: string;
   liquidity: string;
   volume24h: string;
+  /**
+   * Verified against the live /search endpoint, not assumed from the docs:
+   * the exchange returns this as a FRACTION (0.00215 = +0.215%). Callers that
+   * want a percentage must multiply by 100, which /api/assets does so that no
+   * component has to remember which it is.
+   */
+  priceChange24h?: string;
+  marketCap?: string;
   holders?: number;
   riskFlagged?: boolean;
 }

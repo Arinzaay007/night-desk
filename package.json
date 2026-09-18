@@ -21,9 +21,13 @@
     "demo:check": "node scripts/demo-check.mjs"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "framer-motion": "^13.4.0",
+    "lucide-react": "^1.47.0",
     "next": "^15.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tailwindcss": "^4.3.3",
     "viem": "^2.21.0"
   },
   "devDependencies": {

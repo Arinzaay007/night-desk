@@ -20,6 +20,23 @@ export async function GET() {
   }
 
   try {
+    // Base gas, read live. Best-effort: if the RPC is unreachable the ticker
+    // simply omits the row rather than inventing a number for it.
+    let gasGwei: number | null = null;
+    try {
+      const rpc = await fetch('https://base-rpc.publicnode.com', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_gasPrice', params: [] }),
+        signal: AbortSignal.timeout(6_000),
+        cache: 'no-store',
+      });
+      const body = (await rpc.json()) as { result?: string };
+      if (body.result) gasGwei = Number(BigInt(body.result)) / 1e9;
+    } catch {
+      gasGwei = null;
+    }
+
     const assets = [];
     for (const equity of EQUITIES) {
       const result = await searchAssets(equity.symbol, BASE_CHAIN.slug, 1);
@@ -31,12 +48,21 @@ export async function GET() {
         price: Number(match?.price ?? 0),
         liquidity: Number(match?.liquidity ?? 0),
         volume24h: Number(match?.volume24h ?? 0),
+        // The exchange reports this as a fraction (0.00215 = +0.215%).
+        // Stored as a percent so the UI never has to remember which it is.
+        change24h: Number(match?.priceChange24h ?? 0) * 100,
+        marketCap: Number(match?.marketCap ?? 0),
         riskFlagged: match?.riskFlagged ?? false,
       });
       await new Promise(r => setTimeout(r, 150));
     }
 
-    const payload = { ok: true, assets };
+    const payload = {
+      ok: true,
+      assets,
+      gasGwei,
+      feeBps: Number(process.env.INTEGRATOR_FEE_BPS ?? 25),
+    };
     cache = { at: Date.now(), payload };
     return NextResponse.json(payload);
   } catch (error) {

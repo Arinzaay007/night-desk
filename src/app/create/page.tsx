@@ -1,6 +1,5 @@
 'use client';
 
-import { Header } from '@/components/Header';
 import { PlanForm } from '@/components/PlanForm';
 import { WalletBar } from '@/components/WalletBar';
 import { useWallet } from '@/lib/useWallet';
@@ -10,7 +9,6 @@ export default function CreatePage() {
 
   return (
     <>
-      <Header />
       <main className="shell">
         <section style={{ padding: '40px 0 24px' }}>
           <div className="spread">
