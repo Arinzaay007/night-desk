@@ -519,7 +519,12 @@ try {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ assetAddress: EQUITIES.NVDAc, funderAddress: funded }),
   });
-  record('warmup', 'returns approval payloads for a cold wallet', payload.ok && Array.isArray(payload.approvals), `${payload.approvals?.length ?? 0} approval(s)`);
+  record(
+    'warmup',
+    'returns approval payloads for a cold wallet',
+    payload.ok && Array.isArray(payload.approvals) && payload.approvals.length > 0,
+    `${payload.approvals?.length ?? 0} approval(s) — the size ladder must clear Flash's`,
+  );
   record(
     'warmup',
     'never leaks the quote or order fields',
@@ -694,6 +699,18 @@ try {
     'no tx built for a forecast',
   );
 
+  /*
+   * Settle behaves differently by design depending on whether the deployment is
+   * armed, so the assertion has to as well.
+   *
+   *   dry run -> no token required, so a settle for an empty balance is a no-op
+   *   armed   -> OPERATOR_TOKEN required, and with none set it must be REFUSED
+   *
+   * Asserting the dry-run expectation while armed reports a false failure on
+   * correct behaviour, which is worse than no check: it teaches you to ignore
+   * the suite.
+   */
+  const armed = (await api('/api/health')).payload?.dryRun === false;
   const settle = await api('/api/earnings', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -702,12 +719,22 @@ try {
       author: '0x0000000000000000000000000000000000000000',
     }),
   });
-  record(
-    'earnings',
-    'settling with nothing payable is a no-op',
-    settle.payload?.ok === true && (settle.payload?.changed ?? []).length === 0,
-    'nothing invented',
-  );
+
+  if (armed) {
+    record(
+      'earnings',
+      'settling while armed demands an operator token',
+      settle.status === 403,
+      `status ${settle.status} — no token, so the payout bookkeeping is locked`,
+    );
+  } else {
+    record(
+      'earnings',
+      'settling with nothing payable is a no-op',
+      settle.payload?.ok === true && (settle.payload?.changed ?? []).length === 0,
+      'nothing invented',
+    );
+  }
 } catch (error) {
   record('earnings', 'the author ledger responds', false, error.message);
 }

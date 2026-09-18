@@ -112,9 +112,23 @@ export function authorCutMicro(feeMicro: number, pct = authorSharePct()): number
  * ticker we recompute from the notional we know the order was for.
  */
 export function integratorFeeMicroFromFill(
-  fill: { integratorFeeAmount?: string | null; feeTicker?: string | null; notional?: string | null },
+  fill: {
+    integratorFeeNotional?: string | null;
+    integratorFeeAmount?: string | null;
+    feeTicker?: string | null;
+    notional?: string | null;
+  },
   bps: number,
 ): number {
+  /*
+   * Prefer `integratorFeeNotional`: it is our fee already expressed in USD, so
+   * it needs neither a ticker check nor a recomputation. Verified against a real
+   * Base fill (2026-09-18): a $1.35 NVDAc order on a 25 bps rate reported
+   * integratorFeeNotional = "0.003375", which is exactly 25 bps of 1.35.
+   */
+  const usd = Number(fill.integratorFeeNotional ?? '');
+  if (Number.isFinite(usd) && usd > 0) return toMicro(usd);
+
   const ticker = (fill.feeTicker ?? '').toUpperCase();
   const reported = Number(fill.integratorFeeAmount ?? '');
   const dollarish = ticker === 'USDC' || ticker === 'USDT' || ticker === 'USD';

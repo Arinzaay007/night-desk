@@ -115,9 +115,19 @@ export interface FlashFill {
   fillPrice?: string;
   feeAmount?: string;
   feeTicker?: string;
-  /** Your integrator fee for this fill. */
+  /** Your integrator fee for this fill, in `feeTicker`. */
   integratorFeeAmount?: string;
+  /**
+   * Your integrator fee in USD. Present on live fills alongside the ticker-
+   * denominated `integratorFeeAmount`, and strictly better when it is there:
+   * it needs no ticker check and no recomputation.
+   */
+  integratorFeeNotional?: string;
   feeNotional?: string;
+  tradeFeeAmount?: string;
+  networkFeeAmount?: string;
+  contraAmount?: string;
+  targetAmount?: string;
 }
 
 export interface FlashOrder {

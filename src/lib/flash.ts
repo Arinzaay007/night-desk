@@ -1,5 +1,6 @@
 import type {
   FlashAsset,
+  FlashFill,
   FlashGetOrderResponse,
   FlashOrder,
   FlashTokenBalance,
@@ -146,10 +147,38 @@ export const submitOrder = (body: Record<string, unknown>) =>
 export const listOrders = (funderAddress: string, pageSize = 50) =>
   flash<{ orders?: FlashOrder[] }>('/orders', { query: { funderAddress, pageSize } });
 
-export const getOrder = (orderId: string, funderAddress: string) =>
-  flash<FlashGetOrderResponse>(`/orders/${encodeURIComponent(orderId)}`, {
-    query: { funderAddress },
-  });
+/**
+ * A single order, with its fills.
+ *
+ * SHAPE TRAP — the two order endpoints disagree, and it costs real money if you
+ * miss it:
+ *
+ *   GET /orders           -> [ { orderId, status, filled, attachedBracket, ... } ]
+ *   GET /orders/{orderId} -> { order: { ...same fields... }, fills: [ ... ] }
+ *
+ * The single-order response is WRAPPED. Reading `.status` off it returns
+ * `undefined` rather than erroring, so a P&L calculation silently decides the
+ * position is worth nothing and books a 100% loss on a profitable trade. That
+ * is not hypothetical: it is what this build did until a real fill exposed it.
+ *
+ * So the unwrapping happens here, once, and every caller gets a flat order with
+ * its fills attached. Tolerates both shapes in case Definitive normalises them.
+ */
+export const getOrder = async (
+  orderId: string,
+  funderAddress: string,
+): Promise<FlashGetOrderResponse> => {
+  const raw = await flash<FlashGetOrderResponse | { order?: FlashOrder; fills?: FlashFill[] }>(
+    `/orders/${encodeURIComponent(orderId)}`,
+    { query: { funderAddress } },
+  );
+
+  const wrapped = raw as { order?: FlashOrder; fills?: FlashFill[] };
+  if (wrapped?.order) {
+    return { ...wrapped.order, fills: wrapped.fills ?? [] };
+  }
+  return raw as FlashGetOrderResponse;
+};
 
 export const cancelOrder = (orderId: string, body: Record<string, unknown>) =>
   flash<unknown>(`/orders/${encodeURIComponent(orderId)}/cancel`, { body, idempotent: true });

@@ -38,24 +38,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Quote at the smallest size Flash accepts. The quote is discarded — we
-    // only want the approval payloads.
-    const result = await quote({
-      targetChain: BASE_CHAIN.slug,
-      contraChain: BASE_CHAIN.slug,
-      targetAsset: equity.address,
-      contraAsset: USDC.address,
-      side: 'buy',
-      qty: '0.05',
-      orderType: 'market',
-      funderAddress,
-      maxSlippage: '0.03',
-      attachedBracket: {
-        // Wide, arbitrary levels: we are not placing this order.
-        takeProfit: { notionalPrice: '999999' },
-        stopLoss: { notionalPrice: '0.01' },
-      },
-    });
+    /*
+     * The quote is discarded — we only want the approval payloads, and an
+     * approval is the same unlimited grant whatever size we quote at.
+     *
+     * But it still has to be large enough to quote AT ALL. Flash rejects a
+     * trade whose fees would exceed its output, and that floor MOVES with
+     * network conditions: measured $0.03 in September, and by 2026-09-18 the
+     * network portion alone was $0.106, so a $0.05 probe came back
+     * `trade size too small: fees would exceed output amount`.
+     *
+     * Do not hardcode a size here. Ladder up until one quotes, so the warm-up
+     * keeps working as the floor drifts. A quote needs no balance — verified
+     * against an empty wallet — so climbing is free and safe.
+     */
+    const SIZES = ['0.05', '1', '5', '25'];
+    let result = null;
+    let lastError: unknown = null;
+
+    for (const qty of SIZES) {
+      try {
+        result = await quote({
+          targetChain: BASE_CHAIN.slug,
+          contraChain: BASE_CHAIN.slug,
+          targetAsset: equity.address,
+          contraAsset: USDC.address,
+          side: 'buy',
+          qty,
+          orderType: 'market',
+          funderAddress,
+          maxSlippage: '0.03',
+          attachedBracket: {
+            // Wide, arbitrary levels: we are not placing this order.
+            takeProfit: { notionalPrice: '999999' },
+            stopLoss: { notionalPrice: '0.01' },
+          },
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (!result) throw lastError ?? new Error('Could not obtain an approval quote.');
 
     const approvals = [
       result.evm?.approveTx ? { ...result.evm.approveTx, purpose: 'spend USDC' } : null,

@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
          * the record as an unpayaable estimate.
          */
         const settledFills = [...(order.fills ?? []), ...(exitOrder?.fills ?? [])].map(fill => ({
+          integratorFeeNotional: fill.integratorFeeNotional ?? null,
           integratorFeeAmount: fill.integratorFeeAmount ?? null,
           feeTicker: fill.feeTicker ?? null,
           notional: fill.notional ?? null,
