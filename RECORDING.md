@@ -39,9 +39,14 @@ memory. Every quotation below is text that is really on the page.
 
 ## 1. Before you hit record
 
-**Open the app in a real browser tab, not the embedded preview.** A sandboxed iframe blocks
-the MetaMask extension, and wallet A is an injected wallet. Paste the URL into a normal
-tab, then confirm the extension icon goes live.
+**Record against [night-desk-swart.vercel.app](https://night-desk-swart.vercel.app)** — the
+deployed app, in a **real browser tab**. Not the Arena preview iframe (a sandboxed frame
+blocks the MetaMask extension, and wallet A is an injected wallet), and not a sandbox URL
+(those die on restart and change on every restart).
+
+The deployed app is verified: `dryRun: false`, `store.backend: upstash`, all six routes
+serving, and 7 equities pricing live through Flash. It is the same link you will put in the
+submission form, so the video and the form agree.
 
 - [ ] Two browser profiles: **A** in one, **B** in the other. Never switch mid-recording.
 - [ ] The plan link already open in a third tab, obtained with the **Copy link** button —
