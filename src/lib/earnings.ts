@@ -248,8 +248,28 @@ export function reconcile(records: EarningRecord[], input: ReconcileInput): Earn
   if (record.state === 'claimed') return record;
 
   const settled = input.fills.filter(f => {
-    const status = (f.status ?? 'FILLED').toUpperCase();
-    return status === 'FILLED' || status === 'PARTIALLY_FILLED';
+    const status = (f.status ?? '').toUpperCase();
+
+    /*
+     * Flash reports a settled fill as CHAIN_STATUS_PROCESSED, and eventually
+     * CHAIN_STATUS_FINALIZED. Only accepting the generic FILLED here meant no
+     * real mirror ever reconciled: every author's row sat at `estimated`
+     * forever, and `estimated` is deliberately not withdrawable. The money was
+     * owed and structurally unpayable.
+     *
+     * Reorged and unspecified are excluded on purpose — a reorged fill was
+     * undone, and an unknown state is not a settled one. A blank status counts
+     * as neither: this is the one place in the system where guessing in the
+     * generous direction pays out money nobody collected.
+     */
+    if (status === 'CHAIN_STATUS_REORGED' || status === 'CHAIN_STATUS_UNSPECIFIED') return false;
+
+    return (
+      status === 'CHAIN_STATUS_PROCESSED' ||
+      status === 'CHAIN_STATUS_FINALIZED' ||
+      status === 'FILLED' ||
+      status === 'PARTIALLY_FILLED'
+    );
   });
   if (settled.length === 0) return record;
 

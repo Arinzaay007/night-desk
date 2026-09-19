@@ -87,7 +87,22 @@ export function PlanForm({ mode, initial, wallet, authorLabel, hideWalletBar }: 
     if (!wallet.address) return null;
     return {
       v: 1,
-      a: wallet.address,
+      /*
+       * In mirror mode the plan belongs to whoever published the LINK, not to the
+       * wallet executing it.
+       *
+       * Stamping the connected wallet here made every mirror look like a
+       * self-mirror, and a self-mirror is deliberately skipped by the author
+       * ledger — a fee you pay on your own plan is not an obligation to anyone.
+       * So the real author was never credited. It also moved `a` out of the
+       * planKey input, filing each mirror as a brand-new plan instead of a
+       * mirror of this one, which is why a mirrored plan showed no second
+       * mirror on the board and no compliance row.
+       *
+       * Falls back to the connected wallet only when there is no linked plan to
+       * inherit from — that is the compose flow, not the mirror flow.
+       */
+      a: mode === 'mirror' ? (initial?.a ?? wallet.address) : wallet.address,
       n: initial?.n,
       t: selected?.address ?? '',
       s: symbol,

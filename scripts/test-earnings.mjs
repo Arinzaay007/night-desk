@@ -286,9 +286,53 @@ reconcile(f.records, {
 });
 check('a partial fill does reconcile', f.record.state === 'reconciled');
 
-const g = seeded({ orderId: 'ord-7' });
-const missing = reconcile(g.records, { planKey: 'plan-a', orderId: 'nope', fills: [fill(1)], bps: 25 });
-check('an unknown order reconciles nothing', missing === null);
+  const g = seeded({ orderId: 'ord-7' });
+  const missing = reconcile(g.records, { planKey: 'plan-a', orderId: 'nope', fills: [fill(1)], bps: 25 });
+  check('an unknown order reconciles nothing', missing === null);
+
+  /*
+   * The statuses Flash actually sends.
+   *
+   * `reconcile` originally accepted only the generic FILLED, but a real settled
+   * fill comes back as CHAIN_STATUS_PROCESSED — so no author ever reconciled
+   * and every payout sat at `estimated` permanently. That is the bug these four
+   * assertions exist to keep out.
+   */
+  const processed = seeded({ orderId: 'ord-real' });
+  reconcile(processed.records, {
+    planKey: 'plan-a',
+    orderId: 'ord-real',
+    fills: [{ notional: '1.35', status: 'CHAIN_STATUS_PROCESSED', integratorFeeNotional: '0.003375', feeTicker: 'USDC' }],
+    bps: 25,
+  });
+  check('a processed chain fill reconciles', processed.record.state === 'reconciled', processed.record.state);
+
+  const finalized = seeded({ orderId: 'ord-fin' });
+  reconcile(finalized.records, {
+    planKey: 'plan-a',
+    orderId: 'ord-fin',
+    fills: [{ notional: '1.35', status: 'CHAIN_STATUS_FINALIZED', integratorFeeNotional: '0.003375', feeTicker: 'USDC' }],
+    bps: 25,
+  });
+  check('a finalized chain fill reconciles', finalized.record.state === 'reconciled', finalized.record.state);
+
+  const reorged = seeded({ orderId: 'ord-reorg' });
+  reconcile(reorged.records, {
+    planKey: 'plan-a',
+    orderId: 'ord-reorg',
+    fills: [{ notional: '1.35', status: 'CHAIN_STATUS_REORGED', integratorFeeNotional: '0.003375', feeTicker: 'USDC' }],
+    bps: 25,
+  });
+  check('a reorged fill is never paid out', reorged.record.state === 'estimated', reorged.record.state);
+
+  const blank = seeded({ orderId: 'ord-blank' });
+  reconcile(blank.records, {
+    planKey: 'plan-a',
+    orderId: 'ord-blank',
+    fills: [{ notional: '1.35', status: null, integratorFeeNotional: '0.003375', feeTicker: 'USDC' }],
+    bps: 25,
+  });
+  check('a fill with no status is not treated as settled', blank.record.state === 'estimated', blank.record.state);
 
 /* ------------------------------------------------------------------ */
 /* 6. what is payable                                                  */
