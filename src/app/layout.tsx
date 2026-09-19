@@ -4,6 +4,7 @@ import './globals.css';
 import { Header } from '@/components/design/Header';
 import { Footer } from '@/components/design/Footer';
 import { DryRunBanner } from '@/components/DryRunBanner';
+import { WalletProvider } from '@/components/WalletProvider';
 
 /**
  * The four faces the design is built on, self-hosted through next/font.
@@ -59,10 +60,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${sans.variable} ${display.variable} ${mono.variable} ${serif.variable}`}
     >
       <body className="grain relative">
-        <Header />
-        <DryRunBanner />
-        <main>{children}</main>
-        <Footer />
+        {/* The wallet is app-wide, so the header and the page agree about it. */}
+        <WalletProvider>
+          <Header />
+          <DryRunBanner />
+          <main>{children}</main>
+          <Footer />
+        </WalletProvider>
       </body>
     </html>
   );

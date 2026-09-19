@@ -22,7 +22,9 @@ export default function CreatePage() {
             </div>
           </div>
           <div style={{ marginTop: 20 }}>
-            <WalletBar wallet={wallet} />
+            <div id="connect">
+              <WalletBar wallet={wallet} />
+            </div>
           </div>
         </section>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   connectInjected,
   hasInjectedWallet,
@@ -26,7 +26,16 @@ export interface WalletState {
   refreshBalance: () => Promise<void>;
 }
 
-export function useWallet(): WalletState {
+export const WalletContext = createContext<WalletState | null>(null);
+
+/**
+ * The wallet's actual state machine. Instantiated exactly once, by
+ * <WalletProvider> — this is deliberately not exported under the name
+ * `useWallet`, because calling it from two components gives two independent
+ * wallets. That was the bug: the header held its own disconnected state while
+ * the page below it was connected.
+ */
+export function useWalletState(): WalletState {
   const [signer, setSigner] = useState<Signer | null>(null);
   const [balance, setBalance] = useState<{ usdc: number; eth: number } | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -123,4 +132,20 @@ export function useWallet(): WalletState {
     disconnect,
     refreshBalance,
   };
+}
+
+/**
+ * Read the one wallet. Every caller — the header, the plan page, the mirror
+ * form — sees the same connection, the same address and the same balance.
+ *
+ * Throws rather than quietly falling back to a private instance, because a
+ * fallback is exactly the failure this replaced: a component that connects
+ * fine and a header that never notices.
+ */
+export function useWallet(): WalletState {
+  const wallet = useContext(WalletContext);
+  if (!wallet) {
+    throw new Error('useWallet() must be called beneath <WalletProvider>. See src/components/WalletProvider.tsx.');
+  }
+  return wallet;
 }

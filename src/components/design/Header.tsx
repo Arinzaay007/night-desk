@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Wallet, ChevronRight } from 'lucide-react';
+import { Menu, X, Wallet, ChevronRight, Check, Copy, LogOut } from 'lucide-react';
 import { Wordmark, LogoMark } from './Brand';
+import { useWallet } from '@/lib/useWallet';
+import { hasInjectedWallet } from '@/lib/wallet';
+import { shortAddress, usd } from '@/lib/format';
 
 const LINKS = [
   { href: '/create', label: 'Compose' },
@@ -62,6 +65,190 @@ function StatusPill() {
         <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${s.dot}`} />
       </span>
       <span className="num text-[10px] uppercase tracking-[0.18em]">{s.text}</span>
+    </div>
+  );
+}
+
+/**
+ * The header's wallet control.
+ *
+ * The design renders this as a decorative <Link href="/create">Connect wallet</Link>
+ * — a button that never changes because it isn't connected to anything. It now
+ * reads the one shared wallet: disconnected it is the way in, connected it shows
+ * who you are, what you hold, and the way out.
+ *
+ * With no browser wallet installed there is nothing useful to do in a header, so
+ * the click hands off to /create, where the local-key path lives.
+ */
+function WalletButton({ full = false }: { full?: boolean }) {
+  const wallet = useWallet();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // `hasInjectedWallet()` reads window, and the server render has no window.
+  // Branching on it during render would be a hydration mismatch, so wait a tick.
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const injectedReady = mounted && hasInjectedWallet();
+
+  if (!wallet.address) {
+    return (
+      <button
+        type="button"
+        disabled={wallet.connecting}
+        title={injectedReady ? 'Connect your browser wallet' : 'Choose a wallet on the compose page'}
+        onClick={async () => {
+          if (injectedReady) {
+            await wallet.connectInjected();
+            return;
+          }
+          // No browser wallet to talk to. The local-key path lives on /create —
+          // so go there, and if we are already there, take the user to the
+          // control instead of doing nothing at all.
+          if (pathname === '/create') {
+            document.getElementById('connect')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            router.push('/create');
+          }
+        }}
+        className={`focus-ring group inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-ember-300 to-ember-500 text-[13.5px] font-semibold text-ink-950 shadow-[0_10px_30px_-10px_rgba(255,143,66,0.55)] transition-all duration-200 hover:shadow-[0_16px_42px_-10px_rgba(255,143,66,0.72)] hover:-translate-y-[1px] disabled:opacity-70 disabled:hover:translate-y-0 ${
+          full ? 'w-full justify-center px-5 py-3.5 text-[15px]' : 'px-5 py-2.5'
+        }`}
+      >
+        <Wallet size={full ? 16 : 15} strokeWidth={2.3} />
+        {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
+      </button>
+    );
+  }
+
+  return (
+    <div ref={ref} className={`relative ${full ? 'w-full' : ''}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        aria-label="Wallet menu"
+        className={`focus-ring inline-flex items-center gap-2 rounded-full border border-mint-400/24 bg-mint-400/[0.08] text-[13px] font-medium text-mint-200 transition-colors hover:border-mint-400/42 hover:bg-mint-400/[0.12] ${
+          full ? 'w-full justify-center px-5 py-3.5' : 'px-4 py-2.5'
+        }`}
+      >
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-mint-400 animate-pulse-ring" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-mint-400" />
+        </span>
+        <span className="num">{shortAddress(wallet.address)}</span>
+        <ChevronRight
+          size={13}
+          className={`opacity-55 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: [0.22, 0.68, 0.32, 1] }}
+            className={`absolute z-50 mt-2 w-[268px] overflow-hidden rounded-2xl border border-white/[0.09] bg-ink-950/97 p-1.5 backdrop-blur-2xl shadow-[0_24px_60px_-18px_rgba(0,0,0,0.85)] ${
+              full ? 'left-0' : 'right-0'
+            }`}
+          >
+            <div className="px-3 py-2.5">
+              <div className="num text-[7px] uppercase tracking-[0.2em] text-mist-600">
+                {wallet.signer?.mode === 'local' ? 'local key · this browser' : 'connected wallet'}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(wallet.address ?? '').then(
+                    () => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1600);
+                    },
+                    () => undefined,
+                  );
+                }}
+                className="mt-1.5 flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/[0.05]"
+                title="Copy address"
+              >
+                <span className="num truncate text-[11px] text-mist-200">{wallet.address}</span>
+                {copied ? (
+                  <Check size={11} className="shrink-0 text-mint-400" />
+                ) : (
+                  <Copy size={11} className="shrink-0 text-mist-500" />
+                )}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
+              <div className="bg-ink-900/60 px-3 py-2.5">
+                <div className="num text-[6.5px] uppercase tracking-[0.18em] text-mist-600">
+                  usdc
+                </div>
+                <div className="num mt-1 text-[12px] text-mist-100">
+                  {wallet.balance ? usd(wallet.balance.usdc) : '—'}
+                </div>
+              </div>
+              <div className="bg-ink-900/60 px-3 py-2.5">
+                <div className="num text-[6.5px] uppercase tracking-[0.18em] text-mist-600">eth</div>
+                <div className="num mt-1 text-[12px] text-mist-100">
+                  {wallet.balance ? wallet.balance.eth.toFixed(6) : '—'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-1.5 space-y-px">
+              {[
+                { href: '/desk', label: 'My desk' },
+                { href: '/payouts', label: 'Payouts' },
+              ].map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between rounded-lg px-3 py-2 text-[12.5px] text-mist-300 transition-colors hover:bg-white/[0.05] hover:text-mist-100"
+                >
+                  {item.label}
+                  <ChevronRight size={12} className="opacity-45" />
+                </Link>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => {
+                  wallet.disconnect();
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] text-rose-300/85 transition-colors hover:bg-rose-500/[0.09] hover:text-rose-200"
+              >
+                <LogOut size={12} />
+                Disconnect
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -132,13 +319,9 @@ export function Header() {
             <div className="flex items-center gap-2.5">
               <StatusPill />
 
-              <Link
-                href="/create"
-                className="focus-ring group hidden sm:inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-ember-300 to-ember-500 px-5 py-2.5 text-[13.5px] font-semibold text-ink-950 shadow-[0_10px_30px_-10px_rgba(255,143,66,0.55)] transition-all duration-200 hover:shadow-[0_16px_42px_-10px_rgba(255,143,66,0.72)] hover:-translate-y-[1px]"
-              >
-                <Wallet size={15} strokeWidth={2.3} />
-                Connect wallet
-              </Link>
+                <div className="hidden sm:block">
+                  <WalletButton />
+                </div>
 
               <button
                 onClick={() => setOpen(v => !v)}
@@ -176,13 +359,9 @@ export function Header() {
                     </Link>
                   );
                 })}
-                <Link
-                  href="/create"
-                  className="mt-3 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-ember-300 to-ember-500 px-5 py-3.5 text-[15px] font-semibold text-ink-950"
-                >
-                  <Wallet size={16} strokeWidth={2.3} />
-                  Connect wallet
-                </Link>
+                  <div className="mt-3">
+                    <WalletButton full />
+                  </div>
               </div>
             </motion.div>
           )}
