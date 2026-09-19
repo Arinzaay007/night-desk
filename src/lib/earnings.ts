@@ -31,6 +31,8 @@
  * construction rather than by remembering to check.
  */
 
+import { addrKey, sameAddress } from './address';
+
 /** Integer micro-USD per USD. */
 export const MICRO = 1_000_000;
 
@@ -333,7 +335,7 @@ export function summariseForAuthor(records: EarningRecord[], author: string): Au
   const summary = emptySummary(author);
   const plans = new Set<string>();
   for (const record of records) {
-    if (record.author !== author) continue;
+    if (!sameAddress(record.author, author)) continue;
     summary.records += 1;
     plans.add(record.planKey);
     if (record.state === 'estimated') summary.estimatedMicro += record.authorMicro;
@@ -346,7 +348,7 @@ export function summariseForAuthor(records: EarningRecord[], author: string): Au
 
 /** Every author with a balance, largest payable first — the operator queue. */
 export function summariseAllAuthors(records: EarningRecord[]): AuthorSummary[] {
-  const authors = new Set(records.map(r => r.author));
+  const authors = new Set(records.map(r => addrKey(r.author)).filter(Boolean));
   return [...authors]
     .map(author => summariseForAuthor(records, author))
     .sort((a, b) => b.payableMicro - a.payableMicro || a.author.localeCompare(b.author));

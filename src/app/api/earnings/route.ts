@@ -12,6 +12,7 @@ import {
   summariseForAuthor,
   type EarningRecord,
 } from '@/lib/earnings';
+import { sameAddress } from '@/lib/address';
 import { judgePayout } from '@/lib/payout-verify';
 import { listEarnings, updateEarnings } from '@/lib/store';
 
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
 
     const summary = summariseForAuthor(records, author);
     const mine = records
-      .filter(r => r.author === author)
+      .filter(r => sameAddress(r.author, author))
       .sort((a, b) => b.createdAt - a.createdAt);
 
     return NextResponse.json({
@@ -197,12 +198,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: 'author is required.' }, { status: 400 });
       }
 
-      const mine = payable.filter(r => r.author === author);
+      const mine = payable.filter(r => sameAddress(r.author, author));
       const amountMicro = mine.reduce((sum, r) => sum + r.authorMicro, 0);
 
       // Explains a zero payout instead of just refusing one.
       const excluded = records
-        .filter(r => r.author === author && r.state === 'estimated')
+        .filter(r => sameAddress(r.author, author) && r.state === 'estimated')
         .map(r => ({
           id: r.id,
           state: r.state,
@@ -294,7 +295,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'author is required.' }, { status: 400 });
     }
 
-    const ids = payable.filter(r => r.author === author).map(r => r.id);
+    const ids = payable.filter(r => sameAddress(r.author, author)).map(r => r.id);
     if (ids.length === 0) {
       return NextResponse.json({
         ok: true,

@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { EarningRecord } from './earnings';
+import { sameAddress } from './address';
 
 /**
  * The mirror ledger and the author ledger, with three interchangeable backends.
@@ -198,7 +199,7 @@ export async function listEarnings(): Promise<EarningRecord[]> {
 
 export async function earningsForAuthor(author: string): Promise<EarningRecord[]> {
   const all = await listEarnings();
-  return all.filter(e => e.author === author);
+  return all.filter(e => sameAddress(e.author, author));
 }
 
 /**

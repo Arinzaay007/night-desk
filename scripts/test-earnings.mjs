@@ -14,7 +14,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -37,6 +37,22 @@ execFileSync(
   { stdio: 'pipe' },
 );
 
+/*
+ * tsc emits `from './address'` — extensionless, which the bundler resolution
+ * the app uses is happy with and Node's ESM loader is not. Add the extension on
+ * the way out, and mark the output as ESM, so the compiled tree is importable.
+ * Test-harness plumbing; the shipped source is untouched.
+ */
+writeFileSync(path.join(out, 'package.json'), '{"type":"module"}');
+for (const file of readdirSync(out).filter(f => f.endsWith('.js'))) {
+  const full = path.join(out, file);
+  const code = readFileSync(full, 'utf8').replace(
+    /from '(\.[^']*?)'/g,
+    (whole, spec) => (spec.endsWith('.js') ? whole : `from '${spec}.js'`),
+  );
+  writeFileSync(full, code);
+}
+
 const {
   MICRO,
   accrue,
@@ -54,6 +70,9 @@ const {
   summariseForAuthor,
   toMicro,
 } = await import(pathToFileURL(path.join(out, 'earnings.js')).href);
+
+// Compiled alongside earnings.js, because earnings.ts imports it.
+const { addrKey, sameAddress } = await import(pathToFileURL(path.join(out, 'address.js')).href);
 
 let passed = 0;
 let failed = 0;
@@ -411,6 +430,51 @@ check('the largest debt is first', ordered[0].author === '0xbig');
 check('the smallest is last', ordered[1].author === '0xsmall');
 
 /* ------------------------------------------------------------------ */
+/* 6b. address identity                                                */
+/* ------------------------------------------------------------------ */
+
+group('6b. An address is one address in any spelling');
+
+// The real pair from the live ledger: the wallet displays the checksummed
+// form, the write path stores the lowercase form.
+const LOWERCASE  = '0x59f80641278f554aa921cbc6547c1823aafe2fb2';
+const CHECKSUMMED = '0x59f80641278f554aA921Cbc6547C1823AAFe2fB2';
+
+check('checksummed and lowercase are the same address', sameAddress(CHECKSUMMED, LOWERCASE));
+check('all-caps matches too', sameAddress(CHECKSUMMED.toUpperCase(), LOWERCASE));
+check('an address pasted with stray whitespace still matches', sameAddress(`  ${CHECKSUMMED}\n`, LOWERCASE));
+check('addrKey is idempotent', addrKey(addrKey(CHECKSUMMED)) === addrKey(CHECKSUMMED));
+check('different addresses never match', !sameAddress(CHECKSUMMED, OTHER_FUNDER));
+check('a missing author does not match a missing record', !sameAddress('', ''));
+check('null and undefined are not the same address', !sameAddress(null, undefined));
+check('null is not an address', !sameAddress(null, LOWERCASE));
+
+// The failure that was reported: a wallet shows its address checksummed, the
+// ledger stores it lowercase, and a `===` says the author earned nothing.
+const spelled = [];
+accrue(spelled, { planKey: 'u8201h', symbol: 'NVDAc', author: LOWERCASE, funder: FUNDER, orderId: 'ord-case', notionalUsd: 1.35, bps: 25 });
+reconcile(spelled, { planKey: 'u8201h', orderId: 'ord-case', fills: [fill(1.35)], bps: 25 });
+
+const asStored = summariseForAuthor(spelled, LOWERCASE);
+const asShown = summariseForAuthor(spelled, CHECKSUMMED);
+check('a checksummed lookup finds the lowercase record', asShown.records === 1, `records=${asShown.records}`);
+check('...for the same amount', asShown.payableMicro === asStored.payableMicro, `${asShown.payableMicro} µUSD`);
+check('...and that amount is the real 2025 µUSD', asShown.payableMicro === 2025);
+check('...which prints as 0.20¢, not $0.00', formatMicro(asShown.payableMicro) === '0.20¢');
+check('an unrelated wallet is still owed nothing', summariseForAuthor(spelled, OTHER_FUNDER).records === 0);
+check('...and has no plans', summariseForAuthor(spelled, OTHER_FUNDER).plans === 0);
+
+// Rows written before normalisation existed still collapse into one author.
+const mixedCase = [];
+accrue(mixedCase, { planKey: 'u8201h', symbol: 'NVDAc', author: LOWERCASE, funder: FUNDER, orderId: 'm1', notionalUsd: 1, bps: 25 });
+accrue(mixedCase, { planKey: 'u8201h', symbol: 'NVDAc', author: CHECKSUMMED, funder: FUNDER, orderId: 'm2', notionalUsd: 1, bps: 25 });
+const mixedQueue = summariseAllAuthors(mixedCase);
+check('two spellings of one author are one queue row', mixedQueue.length === 1, `queue=${mixedQueue.length}`);
+check('...holding both records', mixedQueue[0].records === 2);
+check('...under one plan', mixedQueue[0].plans === 1);
+
+/* ------------------------------------------------------------------ */
+
 /* 7. the copy                                                         */
 /* ------------------------------------------------------------------ */
 
