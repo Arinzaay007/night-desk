@@ -12,6 +12,7 @@ import {
   summariseForAuthor,
   type EarningRecord,
 } from '@/lib/earnings';
+import { judgePayout } from '@/lib/payout-verify';
 import { listEarnings, updateEarnings } from '@/lib/store';
 
 export const runtime = 'nodejs';
@@ -168,7 +169,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { action?: string; author?: string; ref?: string };
+    const body = (await request.json()) as {
+    action?: string;
+    author?: string;
+    ref?: string;
+    /**
+     * The hash of the USDC transfer the operator broadcast. Required to settle
+     * while armed: the ledger will not record a payout it cannot read back.
+     */
+    txHash?: string;
+  };
     const action = body.action;
 
     if (action !== 'prepare' && action !== 'settle') {
@@ -293,7 +303,70 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const ref = body.ref ?? `settled-${Date.now()}`;
+    /*
+     * PROOF, NOT TRUST.
+     *
+     * This is the one payment in the build, so it is the one place worth being
+     * pedantic: read the transfer back off Base and confirm it paid this author
+     * before the ledger is allowed to say "paid". A ledger that claims a payout
+     * that never happened is worse than one that says nothing, because the
+     * author stops waiting.
+     *
+     * Dry run keeps the old behaviour so the flow can still be walked end to
+     * end with no real money anywhere.
+     */
+    const owedMicro = payable
+      .filter(r => ids.includes(r.id))
+      .reduce((sum, r) => sum + r.authorMicro, 0);
+
+    let ref: string;
+    if (SERVER_DRY_RUN) {
+      ref = body.ref ?? `dry-run-${Date.now()}`;
+    } else {
+      const txHash = typeof body.txHash === 'string' ? body.txHash.trim() : '';
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Broadcast the payout first, then send its transaction hash as {txHash}. Nothing is recorded as paid until that transfer is read back on Base.',
+            owedMicro,
+            owed: formatMicro(owedMicro),
+          },
+          { status: 400 },
+        );
+      }
+
+      let receipt: { status?: string | null; logs?: unknown } | null = null;
+      try {
+        receipt = (await rpc().getTransactionReceipt({
+          hash: txHash as `0x${string}`,
+        })) as { status?: string | null; logs?: unknown } | null;
+      } catch {
+        receipt = null;
+      }
+      if (!receipt) {
+        return NextResponse.json(
+          { ok: false, error: `No receipt for ${txHash} yet. Wait for it to be mined, then settle again.` },
+          { status: 400 },
+        );
+      }
+
+      const verdict = judgePayout({
+        status: receipt.status,
+        logs: receipt.logs as never,
+        token: USDC.address,
+        author,
+        minMicro: owedMicro,
+      });
+      if (!verdict.ok) {
+        return NextResponse.json({ ok: false, error: verdict.reason }, { status: 400 });
+      }
+
+      // The transfer is the reference. A separate id could disagree with it.
+      ref = txHash.toLowerCase();
+    }
+
     let changed: EarningRecord[] = [];
     await updateEarnings(recordsInStore => {
       changed = markClaimed(recordsInStore, ids, ref);

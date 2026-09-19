@@ -56,6 +56,8 @@ export default function PayoutsPage() {
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [settled, setSettled] = useState<string | null>(null);
+  /** The hash of the transfer the operator actually broadcast. */
+  const [txHash, setTxHash] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -110,7 +112,7 @@ export default function PayoutsPage() {
           'content-type': 'application/json',
           ...(token ? { 'x-nightdesk-operator': token } : {}),
         },
-        body: JSON.stringify({ action: 'settle', author }),
+        body: JSON.stringify({ action: 'settle', author, txHash: txHash.trim() }),
       });
       const payload = (await response.json()) as { ok: boolean; total?: string; error?: string; note?: string };
       if (!response.ok || !payload.ok) {
@@ -217,6 +219,22 @@ export default function PayoutsPage() {
             </table>
           )}
         </section>
+
+        {prepared && (prepared.amountMicro ?? 0) > 0 ? (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="tiny dim" style={{ marginBottom: 8 }}>
+              Broadcast that transfer from the operator wallet, then paste its transaction hash.
+              Nothing is recorded as paid until it is read back on Base.
+            </div>
+            <input
+              className="input mono"
+              placeholder="0x… payout transaction hash"
+              value={txHash}
+              onChange={e => setTxHash(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        ) : null}
 
         {prepared ? (
           <section className="section">
